@@ -15,5 +15,5 @@ TARGET_LINK_LIBRARIES(MeroonDemo
   # OpenEngine_Scene
   # Extensions
   Extensions_OpenGLRenderer
-  Extensions_SDL
+  # Extensions_SDL
 )
