@@ -9,7 +9,12 @@ c-declare-end
 )
 
 (define *glut-initialized* #f)
-(define *glut-idle-function #f)
+(define *glut-idle-function* #f)
+
+(c-define (glut-display-function-callback)
+    () void "glut_display_scm_callback" ""
+  ;; should we really swap here?
+  (glut-swap-buffers))
 
 (c-define (glut-idle-function-callback)
     () void "glut_idle_scm_callback" ""
@@ -24,8 +29,10 @@ glutInit(&argc, NULL);
 glutInitWindowPosition(0, 0);
 glutInitWindowSize(___arg1, ___arg2);
 glutInitDisplayMode(GLUT_RGBA|GLUT_DOUBLE|GLUT_DEPTH);
+int win = glutCreateWindow("Meroon Demo");
+glutDisplayFunc(glut_display_scm_callback);
 glutIdleFunc(glut_idle_scm_callback);
-___result = glutCreateWindow("Meroon Demo");
+___result = win;
 glut-make-window-end
 ))
 
@@ -49,6 +56,10 @@ glut-make-window-end
   (c-lambda () void
     "glutSwapBuffers();"))
 
+(define glut-redisplay
+  (c-lambda () void
+    "glutPostRedisplay();"))
+
 (define (run-glut-loop fn)
   (set-glut-idle-function fn)
   ((c-lambda () void "glutMainLoop();")))
@@ -58,4 +69,4 @@ glut-make-window-end
 
 (define-method (render (ctx GLUTContext) (can Canvas))
   (render (GLUTContext-gl-context ctx) can)
-  (glut-swap-buffers))
+  (glut-redisplay))
