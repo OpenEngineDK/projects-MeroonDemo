@@ -1,16 +1,26 @@
-(let* ([mesh (instantiate MeshNode
+
+;(include "remote-debugger/debuggee.scm")
+;(make-rdi-host "localhost:20000")
+
+
+; (thread-start!
+;  (make-thread
+;   (lambda () (##repl-debug-main))))
+
+(define mesh (instantiate MeshNode
                 :geotype 'triangles
                 :datablocks
                 (list 
                  (cons 'indices  (make-datablock '((0) (1) (2))))
                  (cons 'vertices (make-datablock '((0. 0. 0.)
                                                    (1. 0. 0.)
-                                                   (0. 1. 0.))))))]
-       [tnode (instantiate TransformationNode
-                :children (list mesh))]
-       [top   (instantiate TransformationNode
+                                                   (0. 1. 0.)))))))
+(define tnode (instantiate TransformationNode
+                :children (list mesh)))
+(define top   (instantiate TransformationNode
                 :children (list tnode)
-                :position (vector -1.0 -1.0 0.0))]
+                :position (vector -1.0 -1.0 0.0)))
+(let* (
        [can   (instantiate Canvas3D
                 :width  1024
                 :height 768
