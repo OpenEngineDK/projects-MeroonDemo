@@ -9,17 +9,23 @@
    [= view  :immutable]))
 
 (define-class Scene Object
-  ([= children
-      :mutable
-      :initializer (lambda () '())]))
+  ())
+  ;; ([= children :mutable
+  ;;     :initializer (lambda () '())]))
 
 (define-class TransformationNode Scene
-  ([= position :immutable
+  ([= children :mutable
+      :initializer (lambda () '())]
+   [= position :mutable
       :initializer (lambda () (make-vector 3 0.0))]
    [= rotation :immutable
       :initializer (lambda () #f)]
    [= scale :immutable
       :initializer (lambda () (make-vector 3 0.0))]))
+
+(define-class MeshNode Scene
+  ([= geotype :immutable]
+   [= datablocks :immutable]))
 
 (define-generic (move (o) x y z)
   (error "Move is not supported on this object."))
