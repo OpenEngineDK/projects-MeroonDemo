@@ -28,7 +28,7 @@
    [= datablocks :immutable]))
 
 (define-generic (move (o) x y z)
-  (error "Move is not supported on this object."))
+  (error "Move is not supported on this object"))
 
 (define-method (move (node TransformationNode) x y z)
   (with-access node (TransformationNode position)

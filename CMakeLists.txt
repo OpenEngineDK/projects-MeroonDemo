@@ -5,6 +5,9 @@ FIND_PACKAGE(GLUT REQUIRED)
 INCLUDE_DIRECTORIES(${GLUT_INCLUDE_DIR})
 
 GAMBIT_ADD_EXECUTABLE(MeroonDemo
+  vector.scm
+  quaternion.scm
+  transformation.scm
   datablock.scm
   objects.scm
   render.scm
