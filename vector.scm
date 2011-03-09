@@ -1,12 +1,17 @@
 ;; procedure: (vector-map procedure vector1 vector2 ...)
 ;; returns: vector of results
 ;;
-;; 'vector-map' is a mirror of the primitive 'map' procedure on lists.
+;; 'vector-map' is analogous to the 'map' procedure on lists.
 ;;
-;; vector-map applies procedure to elements of vector1 vector2 ... and
-;; returns a new vector with the resulting values. The vectors must be
-;; of the same length. The procedure should accept as many arguments
-;; as there are vectors and should return a single value.
+;; 'vector-map' is part of R6RS:
+;;  http://www.r6rs.org/final/html/r6rs/r6rs-Z-H-14.html#node_idx_742
+;;
+;; vector-map applies procedure element-wise to vector1 vector2 ...
+;; and returns a new vector with the resulting values. The vectors
+;; must be of the same length. The procedure should accept as many
+;; arguments as there are vectors and should return a single value.
+;;
+;; Note: the behavior of multiple returns is unknown (not as R6RS).
 ;;
 ;; Examples:
 ;;
