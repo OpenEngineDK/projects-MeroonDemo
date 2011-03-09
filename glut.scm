@@ -67,6 +67,6 @@ glut-make-window-end
 (define-class GLUTContext Context
   ([= gl-context :immutable]))
 
-(define-method (render (ctx GLUTContext) (can Canvas))
-  (render (GLUTContext-gl-context ctx) can)
+(define-method (render! (ctx GLUTContext) (can Canvas))
+  (render! (GLUTContext-gl-context ctx) can)
   (glut-redisplay))

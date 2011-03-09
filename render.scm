@@ -3,4 +3,4 @@
 (define-class Context Object ())
 
 ;; Generic rendering function
-(define-generic (render (ctx Context) (can Canvas)))
+(define-generic (render! (ctx Context) (can Canvas)))

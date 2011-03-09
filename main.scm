@@ -31,7 +31,7 @@
   (display "Starting main loop.")
   (newline)
   (run-glut-loop (lambda ()
-                   (render ctx can)
+                   (render! ctx can)
                    (with-access tnode (TransformationNode position)
                    (if (> (vector-ref position 0) 2.)
                        (set! position (vector 0. 0. 0.))
