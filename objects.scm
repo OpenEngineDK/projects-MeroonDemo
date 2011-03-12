@@ -8,33 +8,30 @@
   ([= scene :immutable]
    [= view  :immutable]))
 
-(define-class Scene Object
-  ())
-  ;; ([= children :mutable
-  ;;     :initializer (lambda () '())]))
+(define-class Scene Object ())
 
-(define-class TransformationNode Scene
+(define-class SceneParent Scene
   ([= children :mutable
-      :initializer (lambda () '())]
-   [= position :mutable
-      :initializer (lambda () (make-vector 3 0.0))]
-   [= rotation :immutable
-      :initializer (lambda () #f)]
-   [= scale :immutable
-      :initializer (lambda () (make-vector 3 0.0))]))
+      :initializer list]))
+
+(define-class TransformationNode SceneParent
+  ([= transformation :immutable
+      :initializer (lambda () (instantiate Transformation))]))
 
 (define-class MeshNode Scene
   ([= geotype :immutable]
    [= datablocks :immutable]))
 
-(define-generic (move (o) x y z)
-  (error "Move is not supported on this object"))
+(define-generic (move! (o) x y z)
+  (error (string-append "Object of type "
+                        (->Class (object->class o))
+                        " is not movable")))
 
-(define-method (move (node TransformationNode) x y z)
-  (with-access node (TransformationNode position)
-    (vector-set! position 0 (fl+ x (vector-ref position 0)))
-    (vector-set! position 1 (fl+ y (vector-ref position 1)))
-    (vector-set! position 2 (fl+ z (vector-ref position 2)))))
+(define-method (move! (o Transformation) x y z)
+  (Transformation-translate o x y z))
+
+(define-method (move! (node TransformationNode) x y z)
+  (move! (TransformationNode-transformation node) x y z))
 
 (define-method (show (o Canvas3D) . stream)
   (let ([stream (if (pair? stream) (car stream) (current-output-port))])
@@ -44,6 +41,6 @@
 
 (define-method (show (o TransformationNode) . stream)
   (let ([stream (if (pair? stream) (car stream) (current-output-port))])
-    (display "#<a TNode: position(" stream)
-    (show (TransformationNode-position o) stream)
-    (display ")>" stream)))
+    (display "#<a TNode: transformation" stream)
+    (show (TransformationNode-transformation o) stream)
+    (display ">" stream)))

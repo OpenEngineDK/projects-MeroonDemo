@@ -19,9 +19,10 @@
                 :children (list mesh)))
 (define top   (instantiate TransformationNode
                 :children (list tnode)
-                :position (vector -1.0 -1.0 0.0)))
-(let* (
-       [can   (instantiate Canvas3D
+                :transformation (instantiate Transformation
+                                  :translation (vector -1.0 -1.0 0.0))))
+
+(let* ([can   (instantiate Canvas3D
                 :width  1024
                 :height 768
                 :scene  top
@@ -32,8 +33,10 @@
   (newline)
   (run-glut-loop (lambda ()
                    (render! ctx can)
-                   (with-access tnode (TransformationNode position)
-                   (if (> (vector-ref position 0) 2.)
-                       (set! position (vector 0. 0. 0.))
-                       (move tnode .1 .1 .0))
-                   (thread-sleep! 0.1)))))
+                   (with-access
+                       (TransformationNode-transformation tnode)
+                       (Transformation translation)
+                     (if (> (vector-ref translation 0) 2.)
+                         (set! translation (vector 0. 0. 0.))
+                         (move! tnode .1 .1 .0))
+                     (thread-sleep! 0.1)))))
