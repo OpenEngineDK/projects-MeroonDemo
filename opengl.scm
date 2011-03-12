@@ -1,7 +1,9 @@
 
 ;; Context definition
 
-(define-class GLContext Context ())
+(define-class GLContext Context 
+  ([= shaders :initializer list]))
+
 
 ;; Canvas rendering
 
@@ -36,6 +38,44 @@
             (gl-apply-mesh vs is))
           (error "Invalid data block (must define verticies and indices")))))
 
+(define-method (gl-render-scene ctx (node ShaderNode))
+  (let ([shader-tag (ShaderNode-tags node 0)])
+    (with-access ctx (GLContext shaders)
+      
+      (cond 
+        [(assoc shader-tag shaders)
+         => (lambda (p)
+              (gl-apply-shader (cdr p)))]
+        [else 
+         (let* ([shader (assoc shader-tag shader-programs)]
+                [vert (cadr shader)]
+                [frag (caddr shader)])
+           (set! shaders (cons (cons shader-tag
+                                    (gl-make-program vert frag)) 
+                               shaders)))])
+      (call-next-method))))
+            
+            
+
+
+;;; shaders
+
+(define shader-programs
+  (list
+    (list 'blue
+#<<BLUE-VERT-END
+void main () {
+  gl_Position = ftransform();         
+}
+BLUE-VERT-END
+#<<BLUE-FRAG-END
+void main () {
+  gl_FragColor = vec4(0., 0. , 1. ,1. );
+}
+BLUE-FRAG-END
+)
+))
+
 ;; Helpers and foreign functions to OpenGL
 
 (c-define-type DataBlock (pointer "IDataBlock"))
@@ -46,6 +86,63 @@
 using namespace OpenEngine::Resources;
 c-declare-end
 )
+
+(define gl-make-program
+  (c-lambda (char-string char-string) int 
+#<<GL-MAKE-PROGRAM-END
+
+GLint compiled;
+GLuint vid = glCreateShader(GL_VERTEX_SHADER);
+glShaderSource(vid, 1, &(const GLchar*)___arg1, NULL);
+glCompileShader(vid);
+
+
+glGetShaderiv(vid, GL_COMPILE_STATUS, &compiled);
+if (!compiled) {
+printf("failed to compile vertex: %s\n",___arg1);
+
+            GLsizei bufsize;
+            const int maxBufSize = 100;
+            char buffer[maxBufSize];
+            glGetShaderInfoLog(vid, maxBufSize, &bufsize, buffer);
+            printf("%s\n",buffer);
+
+}
+GLuint fid = glCreateShader(GL_FRAGMENT_SHADER);
+glShaderSource(fid, 1, &(const GLchar*)___arg2, NULL);
+glCompileShader(fid);
+
+glGetShaderiv(fid, GL_COMPILE_STATUS, &compiled);
+if (!compiled) {
+printf("failed to compile fragment: %s\n",___arg2);
+            GLsizei bufsize;
+            const int maxBufSize = 100;
+            char buffer[maxBufSize];
+            glGetShaderInfoLog(fid, maxBufSize, &bufsize, buffer);
+            printf("%s\n",buffer);
+}
+
+GLuint pid = glCreateProgram();
+glAttachShader(pid, vid);
+glAttachShader(pid, fid);
+glLinkProgram(pid);
+GLint linked;
+glGetProgramiv(pid, GL_LINK_STATUS, &linked);
+if (!linked)
+    printf("Fuuuuuuuu\n");
+
+___result = pid;
+
+GL-MAKE-PROGRAM-END
+))
+
+(define gl-apply-shader
+  (c-lambda (int) void
+#<<APPLY-SHADER-END
+glUseProgram(___arg1);
+APPLY-SHADER-END
+))
+
 
 (define gl-apply-mesh
   (c-lambda (DataBlock DataBlock) void

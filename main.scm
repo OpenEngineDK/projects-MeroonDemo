@@ -1,11 +1,18 @@
 
-;(include "remote-debugger/debuggee.scm")
-;(make-rdi-host "localhost:20000")
+; (include "remote-debugger/debuggee.scm")
+; (make-rdi-host "localhost:20000")
 
-
-; (thread-start!
-;  (make-thread
-;   (lambda () (##repl-debug-main))))
+;; (thread-start!
+;;   (make-thread
+;;     (lambda () 
+;;       (with-exception-handler 
+;;         (lambda (e) 
+;;           (show "wtf..")
+;;           (show e)
+          
+;;           )
+;;         (lambda () (##repl-debug-main))))
+;;     ))
 
 (define mesh (instantiate MeshNode
                 :geotype 'triangles
@@ -15,12 +22,18 @@
                  (cons 'vertices (make-datablock '((0. 0. 0.)
                                                    (1. 0. 0.)
                                                    (0. 1. 0.)))))))
+(define shn   (instantiate ShaderNode
+                :children (list mesh)
+                :tags 'blue))
+
+
 (define tnode (instantiate TransformationNode
-                :children (list mesh)))
+                :children (list shn)))
 (define top   (instantiate TransformationNode
                 :children (list tnode)
                 :transformation (instantiate Transformation
                                   :translation (vector -1.0 -1.0 0.0))))
+
 
 (let* ([can   (instantiate Canvas3D
                 :width  1024

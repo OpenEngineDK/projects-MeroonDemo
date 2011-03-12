@@ -22,6 +22,9 @@
   ([= geotype :immutable]
    [= datablocks :immutable]))
 
+(define-class ShaderNode SceneParent ;; Effect
+  ([* tags :immutable]))
+
 (define-generic (move! (o) x y z)
   (error (string-append "Object of type "
                         (->Class (object->class o))

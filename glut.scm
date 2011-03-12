@@ -1,5 +1,6 @@
 ;; (c-declare "#include <Meta/GLUT.h>")
 (c-declare #<<c-declare-end
+#include <Meta/OpenGL.h>
 #if defined __APPLE__
 #include <GLUT/glut.h>
 #else
@@ -24,14 +25,19 @@ c-declare-end
 (define glut-make-window
   (c-lambda (int int) int
 #<<glut-make-window-end
-int argc = 0;
-glutInit(&argc, NULL);
+int argc = 1;
+char* argv = "bla";
+printf("init glut\n");
+glutInit(&argc, &argv);
 glutInitWindowPosition(0, 0);
 glutInitWindowSize(___arg1, ___arg2);
 glutInitDisplayMode(GLUT_RGBA|GLUT_DOUBLE|GLUT_DEPTH);
 int win = glutCreateWindow("Meroon Demo");
 glutDisplayFunc(glut_display_scm_callback);
 glutIdleFunc(glut_idle_scm_callback);
+
+glewInit();
+
 ___result = win;
 glut-make-window-end
 ))
@@ -47,7 +53,7 @@ glut-make-window-end
 (define (get-context win)
   (and (pair? win)
        (equal? (car win) 'glut-window)
-       (make-GLUTContext (make-GLContext))))
+       (make-GLUTContext (instantiate GLContext))))
 
 (define (set-glut-idle-function fn)
   (set! *glut-idle-function* fn))
