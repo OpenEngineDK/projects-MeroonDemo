@@ -15,3 +15,8 @@ darcs-dev /projects/MeroonDemo fh.daimi.au.dk:/users/cgd/code/projects/MeroonDem
 # required extensions
 darcs 	   /extensions/OpenGLRenderer		http://openengine.dk/code/extensions/OpenGLRenderer
 darcs-dev  /extensions/OpenGLRenderer		fh.cs.au.dk:/users/cgd/code/extensions/OpenGLRenderer
+darcs /extensions/OBJResource            	http://openengine.dk/code/extensions/OBJResource
+darcs /extensions/TGAResource            	http://openengine.dk/code/extensions/TGAResource
+
+any /resources      http://www.openengine.dk/data/projects/DragonPanic/Dragon.zip
+

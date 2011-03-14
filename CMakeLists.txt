@@ -13,6 +13,7 @@ GAMBIT_ADD_EXECUTABLE(MeroonDemo
   render.scm
   opengl.scm
   glut.scm
+  compat.scm
   main.scm
 )
 
@@ -22,5 +23,7 @@ TARGET_LINK_LIBRARIES(MeroonDemo
   OpenEngine_Core
   # Extensions
   Extensions_OpenGLRenderer
+  Extensions_OBJResource
+  Extensions_TGAResource
   ${GLUT_LIBRARIES}
 )
