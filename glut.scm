@@ -1,5 +1,6 @@
 ;; (c-declare "#include <Meta/GLUT.h>")
 (c-declare #<<c-declare-end
+#include <cstdio>	   
 #include <Meta/OpenGL.h>
 #if defined __APPLE__
 #include <GLUT/glut.h>

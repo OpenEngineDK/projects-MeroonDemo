@@ -14,6 +14,15 @@
 ;;         (lambda () (##repl-debug-main))))
 ;;     ))
 
+;; (compat-add-resource-path "resources/")
+
+(define dragon-head
+    (load-scene "resources/Dragon/DragonHead.obj"))
+
+(define dragon-jaw
+    (load-scene "resources/Dragon/DragonJaw.obj"))
+;;(compat-load-model "Dragon/DragonHead.obj"))
+
 (define mesh (instantiate MeshNode
                 :geotype 'triangles
                 :datablocks
@@ -30,16 +39,19 @@
 (define tnode (instantiate TransformationNode
                 :children (list shn)))
 (define top   (instantiate TransformationNode
-                :children (list tnode)
+                :children (list dragon-head dragon-jaw) ;; tnode)
                 :transformation (instantiate Transformation
                                   :translation (vector -1.0 -1.0 0.0))))
 
+
+(define cam (instantiate Camera))
+(move! cam 0.0 0.0 200.0)
 
 (let* ([can   (instantiate Canvas3D
                 :width  1024
                 :height 768
                 :scene  top
-                :view   #f)]
+                :camera cam)]
        [win (make-window 1024 768)]
        [ctx (get-context win)])
   (display "Starting main loop.")
@@ -53,3 +65,4 @@
                          (set! translation (vector 0. 0. 0.))
                          (move! tnode .1 .1 .0))
                      (thread-sleep! 0.1)))))
+

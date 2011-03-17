@@ -10,7 +10,8 @@
 (define-method (render! (ctx GLContext) (can Canvas3D))
   (gl-clear) ;; might not want to clear here...
   (gl-viewport (Canvas-width can) (Canvas-height can))
-  (gl-viewing-volume)
+  (gl-viewing-volume (Projection-c-matrix (Camera-proj (Canvas3D-camera can)))
+		     (Transformation-c-matrix (Camera-view (Canvas3D-camera can))))
   (gl-render-scene ctx (Canvas3D-scene can)))
 
 ;; Scene rendering
@@ -35,6 +36,7 @@
       (if (and v? i?)
           (let ([vs (cdr v?)]
                 [is (cdr i?)])
+	    ;; (display "gl-apply-mesh")
             (gl-apply-mesh vs is))
           (error "Invalid data block (must define verticies and indices")))))
 
@@ -90,10 +92,11 @@ c-declare-end
 (define gl-make-program
   (c-lambda (char-string char-string) int 
 #<<GL-MAKE-PROGRAM-END
-
+const GLchar* arg1 = ___arg1;
+const GLchar* arg2 = ___arg2;
 GLint compiled;
 GLuint vid = glCreateShader(GL_VERTEX_SHADER);
-glShaderSource(vid, 1, &(const GLchar*)___arg1, NULL);
+glShaderSource(vid, 1, &arg1, NULL);
 glCompileShader(vid);
 
 
@@ -109,7 +112,7 @@ printf("failed to compile vertex: %s\n",___arg1);
 
 }
 GLuint fid = glCreateShader(GL_FRAGMENT_SHADER);
-glShaderSource(fid, 1, &(const GLchar*)___arg2, NULL);
+glShaderSource(fid, 1, &arg2, NULL);
 glCompileShader(fid);
 
 glGetShaderiv(fid, GL_COMPILE_STATUS, &compiled);
@@ -179,13 +182,25 @@ apply-mesh-end
      glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
      CHECK_FOR_GL_ERROR();"))
 
+
+(c-define-type FloatArray (pointer "float"))
+
 (define gl-viewing-volume
-  (c-lambda () void
-    "glMatrixMode(GL_PROJECTION);
-     CHECK_FOR_GL_ERROR();
-     glLoadIdentity();
-     CHECK_FOR_GL_ERROR();
-     glMatrixMode(GL_MODELVIEW);
-     CHECK_FOR_GL_ERROR();
-     glLoadIdentity();
-     CHECK_FOR_GL_ERROR();"))
+  (c-lambda (FloatArray FloatArray) void
+#<<GL-VIEWING-VOLUME-END
+  float* proj = ___arg1;
+  float* view = ___arg2;
+  //printf("%f %f %f %f\n", proj[0], proj[4], proj[8], proj[12]);
+  //printf("%f %f %f %f\n", proj[1], proj[5], proj[9], proj[13]);
+  //printf("%f %f %f %f\n", proj[2], proj[6], proj[10], proj[14]);
+  //printf("%f %f %f %f\n", proj[3], proj[7], proj[11], proj[15]);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glMultMatrixf(proj);
+  CHECK_FOR_GL_ERROR();
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+  glMultMatrixf(view);
+  CHECK_FOR_GL_ERROR();
+GL-VIEWING-VOLUME-END
+))
