@@ -19,6 +19,7 @@ c-declare-end
 (define *scene-parent* *scene-root*)
 
 (define *transformation-pos* (make-vector 3 0.0))
+(define *transformation-rot* (instantiate Quaternion))
 (define *transformation-scale* (make-vector 3 1.0))
 
 (c-define (add-vertex-db db)
@@ -40,6 +41,10 @@ c-declare-end
     (float float float) void "set_pos_scm" ""
     (set! *transformation-pos* (list->vector `(,x ,y ,z))))
 
+(c-define (set-rot w x y z)
+    (float float float float) void "set_rot_scm" ""
+    (set! *transformation-rot* (instantiate Quaternion :w w :x x :y y :z z)))  
+
 (c-define (set-scale x y z)
     (float float float) void "set_scale_scm" ""
     (set! *transformation-scale* (list->vector `(,x ,y ,z))))
@@ -49,6 +54,7 @@ c-declare-end
     (let ((node (instantiate TransformationNode 
 			     :transformation (instantiate Transformation 
 							  :translation *transformation-pos*
+                                                          :rotation *transformation-rot*
 							  :scaling *transformation-scale*))))
       (with-access *scene-parent* (SceneParent children)
 		   (set! children (cons node children)))

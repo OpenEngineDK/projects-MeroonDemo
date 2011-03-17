@@ -64,5 +64,6 @@
                      (if (> (vector-ref translation 0) 2.)
                          (set! translation (vector 0. 0. 0.))
                          (move! tnode .1 .1 .0))
+                     (rotate! cam 0.1 (vector 0. 1. 0.))
                      (thread-sleep! 0.1)))))
 

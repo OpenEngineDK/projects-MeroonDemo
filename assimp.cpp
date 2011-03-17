@@ -10,6 +10,7 @@ void add_vertex_db_scm(IDataBlock* db);
 void add_index_db_scm(IDataBlock* db);
 void add_mesh_scm();
 void set_pos_scm(float x, float y, float z);
+void set_rot_scm(float w, float x, float y, float z);
 void set_scale_scm(float x, float y, float z);
 void append_transformation_node_scm();
 void append_mesh_node_scm(int i);
@@ -117,6 +118,7 @@ void readNode(aiNode* node) {
 
     
     set_pos_scm(pos.x, pos.y, pos.z);
+    set_rot_scm(rot.w, rot.x, rot.y, rot.z);
     set_scale_scm(scl.x, scl.y, scl.z);
     append_transformation_node_scm();
             

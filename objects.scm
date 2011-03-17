@@ -93,6 +93,18 @@ UPDATE_PROJECTION_END
 (define-class ShaderNode SceneParent ;; Effect
   ([* tags :immutable]))
 
+(define-generic (rotate! (o) angle vec)
+  (error (string-append "Object of type "
+                        (->Class (object->class o))
+                        " can not be rotated")))
+
+(define-method (rotate! (o Transformation) angle vec)
+  (Transformation-rotate o angle vec))
+
+(define-method (rotate! (cam Camera) angle vec)
+  (rotate! (Camera-view cam) angle vec)
+  (update-transformation-rot-and-scl! (Camera-view cam)))
+
 (define-generic (move! (o) x y z)
   (error (string-append "Object of type "
                         (->Class (object->class o))
@@ -125,14 +137,3 @@ UPDATE_PROJECTION_END
 (define-method (show (o MeshNode) . stream)
   (let ([stream (if (pair? stream) (car stream) (current-output-port))])
     (display "#<a MeshNode>" stream)))
-
-
-(define-generic (pp (o))
-  (error "hest"))
-
-(define-method (pp (o Scene))
-	       (show o))
-
-(define-method (pp (o SceneParent))
-	       (show o)
-	       (map pp (SceneParent-children o)))
