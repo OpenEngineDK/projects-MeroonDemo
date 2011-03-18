@@ -99,11 +99,14 @@ UPDATE_PROJECTION_END
                         " can not be rotated")))
 
 (define-method (rotate! (o Transformation) angle vec)
-  (Transformation-rotate o angle vec))
+  (Transformation-rotate o angle vec)
+  (update-transformation-rot-and-scl! o))
+
+(define-method (rotate! (o TransformationNode) angle vec)
+  (rotate! (TransformationNode-transformation o) angle vec))
 
 (define-method (rotate! (cam Camera) angle vec)
-  (rotate! (Camera-view cam) angle vec)
-  (update-transformation-rot-and-scl! (Camera-view cam)))
+  (rotate! (Camera-view cam) angle vec))
 
 (define-generic (move! (o) x y z)
   (error (string-append "Object of type "
@@ -112,7 +115,6 @@ UPDATE_PROJECTION_END
 
 (define-method (move! (o Transformation) x y z)
   (Transformation-translate o x y z))
-
 
 (define-method (move! (node TransformationNode) x y z)
   (move! (TransformationNode-transformation node) x y z))

@@ -1,3 +1,4 @@
+(c-define-type FloatArray (pointer "float"))
 
 ;; Context definition
 
@@ -160,12 +161,10 @@ apply-mesh-end
 ))
 
 (define (gl-push-transformation trans)
-  (with-access trans (Transformation translation)
-    ((c-lambda (float float float) void
-       "glPushMatrix(); glTranslatef(___arg1,___arg2,___arg3);")
-     (vector-ref translation 0)
-     (vector-ref translation 1)
-     (vector-ref translation 2))))
+  (with-access trans (Transformation c-matrix)
+    ((c-lambda (FloatArray) void
+       "glPushMatrix(); glMultMatrixf(___arg1);")
+     c-matrix)))
 
 (define gl-pop-transformation
   (c-lambda () void
@@ -182,8 +181,6 @@ apply-mesh-end
      glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
      CHECK_FOR_GL_ERROR();"))
 
-
-(c-define-type FloatArray (pointer "float"))
 
 (define gl-viewing-volume
   (c-lambda (FloatArray FloatArray) void

@@ -38,10 +38,16 @@
 
 (define tnode (instantiate TransformationNode
                 :children (list shn)))
-(define top   (instantiate TransformationNode
-                :children (list dragon-head dragon-jaw) ;; tnode)
+
+(define jaw-node (instantiate TransformationNode
+                :children (list dragon-jaw)))
+(define rot-angle 0.)
+(define rot-delta 0.1)
+
+(define top (instantiate TransformationNode
+                :children (list dragon-head jaw-node) ;; tnode)
                 :transformation (instantiate Transformation
-                                  :translation (vector -1.0 -1.0 0.0))))
+				    :translation (vector -1.0 -1.0 0.0))))
 
 
 (define cam (instantiate Camera))
@@ -59,11 +65,18 @@
   (run-glut-loop (lambda ()
                    (render! ctx can)
                    (with-access
-                       (TransformationNode-transformation tnode)
-                       (Transformation translation)
-                     (if (> (vector-ref translation 0) 2.)
-                         (set! translation (vector 0. 0. 0.))
-                         (move! tnode .1 .1 .0))
-                     (rotate! cam 0.1 (vector 0. 1. 0.))
-                     (thread-sleep! 0.1)))))
+		    (TransformationNode-transformation tnode)
+		    (Transformation translation)
+		    (if (> (vector-ref translation 0) 2.)
+			(set! translation (vector 0. 0. 0.))
+			(move! tnode .1 .1 .0)))
+		   (if (<= rot-angle 0.)
+		       (set! rot-delta .1)
+		       (if (>= rot-angle (* pi .2))
+			   (set! rot-delta -.1)
+			   #t))
+		   (set! rot-angle (+ rot-angle rot-delta))
+		   (rotate! jaw-node rot-delta (vector 1. 0. 0.))
+		   (rotate! cam .1 (vector 0. 1. 0.))
+		   (thread-sleep! 0.1))))
 
