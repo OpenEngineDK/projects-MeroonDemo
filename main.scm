@@ -2,17 +2,17 @@
 ; (include "remote-debugger/debuggee.scm")
 ; (make-rdi-host "localhost:20000")
 
-;; (thread-start!
-;;   (make-thread
-;;     (lambda () 
-;;       (with-exception-handler 
-;;         (lambda (e) 
-;;           (show "wtf..")
-;;           (show e)
+(thread-start!
+  (make-thread
+    ;; (lambda () 
+    ;;   (with-exception-handler 
+    ;;     (lambda (e) 
+    ;;       (show "wtf..")
+    ;;       (show e)
           
-;;           )
-;;         (lambda () (##repl-debug-main))))
-;;     ))
+    ;;       )
+        (lambda () (##repl-debug-main))))
+    ;; ))
 
 ;; (compat-add-resource-path "resources/")
 

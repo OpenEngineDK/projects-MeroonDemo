@@ -20,7 +20,7 @@ void append_material_scm(char* path);
 void append_empty_material_scm();
 
 void readMaterials(aiMaterial** ms, unsigned int size) {
-    printf("c read materials\n");
+    // printf("c read materials\n");
     unsigned int i;
     for (i = 0; i < size; ++i) {
         aiMaterial* m = ms[size-i-1];
@@ -34,7 +34,7 @@ void readMaterials(aiMaterial** ms, unsigned int size) {
 
 
 void readMeshes(aiMesh** ms, unsigned int size) {
-    printf("c read meshes\n");
+    // printf("c read meshes\n");
     unsigned int i, j;
     for (i = 0; i < size; ++i) {
         aiMesh* m = ms[size-i-1]; // iterate in reverse order since we append to a scheme list

@@ -28,6 +28,7 @@
 (define-method (render! (ctx GLContext) (can Canvas3D))
   (gl-clear) ;; might not want to clear here...
   (gl-viewport (Canvas-width can) (Canvas-height can))
+  ;; (show (Camera-view (Canvas3D-camera can)))
   (gl-viewing-volume (Projection-c-matrix (Camera-proj (Canvas3D-camera can)))
 		     (Transformation-c-matrix (Camera-view (Canvas3D-camera can))))
   (gl-render-scene ctx (Canvas3D-scene can)))
@@ -290,6 +291,13 @@ apply-mesh-end
   //printf("%f %f %f %f\n", proj[1], proj[5], proj[9], proj[13]);
   //printf("%f %f %f %f\n", proj[2], proj[6], proj[10], proj[14]);
   //printf("%f %f %f %f\n", proj[3], proj[7], proj[11], proj[15]);
+
+  //printf("%f %f %f %f\n", view[0], view[4], view[8], view[12]);
+  //printf("%f %f %f %f\n", view[1], view[5], view[9], view[13]);
+  //printf("%f %f %f %f\n", view[2], view[6], view[10], view[14]);
+  //printf("%f %f %f %f\n", view[3], view[7], view[11], view[15]);
+
+
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   glMultMatrixf(proj);

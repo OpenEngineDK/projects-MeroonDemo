@@ -25,24 +25,22 @@ c-declare-end
 
 (c-define (set-bitmap width height data)
     (int int CharArray) void "set_bitmap_scm" ""
-    (display "in set-bitmap\n")
     (set! *loaded-bitmap* (instantiate Bitmap :width width :height height :c-data data)))
 
 (define c-load-bitmap
   (c-lambda (char-string) bool
 #<<c-load-bitmap-end
 
-printf("load path: %s\n", ___arg1);
 ITexture2DPtr texr = ResourceManager<ITextureResource>::Create(___arg1);
 texr->Load();
 unsigned int size = texr->GetChannels() * texr->GetChannelSize() * texr->GetWidth() * texr->GetHeight();
 char* data = new char[size];
+
+// copy the texture data since texr boost pointer goes out of scope and deletes the internal data array.
 memcpy(data, texr->GetVoidDataPtr(), size);
-printf("load-bitmap width: %d height: %d data %x\n", texr->GetWidth(), texr->GetHeight(), (char*)texr->GetVoidDataPtr());
+printf("load-bitmap path: %s width: %d height: %d\n", ___arg1, texr->GetWidth(), texr->GetHeight());
 set_bitmap_scm(texr->GetWidth(), texr->GetHeight(), data);
-printf("after set-bitmap\n");
 texr->Unload();
-printf("end of load-bitmap\n");
 c-load-bitmap-end
 ))
 

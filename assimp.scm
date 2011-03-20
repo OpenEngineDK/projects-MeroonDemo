@@ -90,22 +90,18 @@ c-declare-end
 			     :texture (list-ref *loaded-materials* (car (list-ref *loaded-meshes* i))))
 			 children))))
 
-
 (c-define (append-material path)
     (char-string) void "append_material_scm" ""
-    (display "APPEND TEX\n")
     (set! *loaded-materials* (cons (instantiate Texture :image (load-bitmap (string-append *current-file-dir* path))) *loaded-materials*)))
 
 (c-define (append-empty-material)
     () void "append_empty_material_scm" ""
-    (display "APPEND EMPTY TEX\n")
     (set! *loaded-materials* (cons (instantiate Texture) *loaded-materials*)))
 
 
 (define c-load-scene
   (c-lambda (char-string) bool
 #<<c-load-scene-end
-printf("c load scene!\n");
 Assimp::Importer importer;
 const aiScene* scene = importer.ReadFile( ___arg1, 
 					  aiProcess_CalcTangentSpace       | 
