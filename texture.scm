@@ -11,17 +11,25 @@ c-declare-end
 "ResourceManager<ITexture2D>::AddPlugin(new SDLImagePlugin());"
 ))
 
+(c-define-type CharArray (pointer "char"))
 
 ;; --- Bitmap ---
 (define-class Bitmap Object
   ([= width  :immutable :initializer (lambda () 0)]
    [= height :immutable :initializer (lambda () 0)]
-   [= c-data :maybe-uninitialized]))
+   [= c-data :immutable :initializer (c-lambda () CharArray "___result_voidstar = NULL;")]))
 
+(define-method (initialize! (o Bitmap))
+  ;; free the c-matrix when object is reclaimed by the gc.
+  (make-will o (lambda (x) 
+   		 ;; (display "delete array\n")
+		 (with-access x (Bitmap c-data)
+	           ((c-lambda (CharArray) void
+		      "if (___arg1) delete[] ___arg1;")
+		   c-data))))
+  (call-next-method))
 
 (define *loaded-bitmap* #f)
-
-(c-define-type CharArray (pointer "char"))
 
 (c-define (set-bitmap width height data)
     (int int CharArray) void "set_bitmap_scm" ""

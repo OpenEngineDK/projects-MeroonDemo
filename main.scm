@@ -49,15 +49,14 @@
                 :children (list mesh)
                 :tags 'blue))
 
-
 (define tnode (instantiate TransformationNode
                 :children (list shn)))
 
-(define rot-angle 0.)
-(define rot-delta 0.01)
+(define light (instantiate TransformationNode :children (list (instantiate LightNode))))
+(move! light 0. 0. -100.)
 
 (define top (instantiate TransformationNode
-                :children (list dragon) ;; tnode)
+                :children (list dragon light) ;; tnode)
                 :transformation (instantiate Transformation
 				    :translation (vector -1.0 -1.0 0.0))))
 
@@ -65,8 +64,10 @@
 (define cam (instantiate Camera))
 (move! cam 0.0 0.0 200.0)
 
-
 (define modules (make-modules (make-rotator dragon 0.01 (vector 0.0 1.0 0.0))))
+
+(define rot-angle 0.)
+(define rot-delta 0.01)
 
 (let* ([can   (instantiate Canvas3D
                 :width  1024

@@ -50,18 +50,18 @@ void readMeshes(aiMesh** ms, unsigned int size) {
         }
         DataBlock<3,float>* verts = new DataBlock<3,float>(num, dest);
 
-        // Float3DataBlockPtr norm;
-        // if (m->HasNormals()) {
-        //     // read normals
-        //     src = m->mNormals;
-        //     dest = new float[3 * num];
-        //     for (j = 0; j < num; ++j) {
-        //         dest[j*3]   = src[j].x;
-        //         dest[j*3+1] = src[j].y;
-        //         dest[j*3+2] = src[j].z;
-        //     }
-        //     norm = Float3DataBlockPtr(new DataBlock<3,float>(num, dest));
-        // }
+        DataBlock<3,float>* norms = NULL;
+        if (m->HasNormals()) {
+            // read normals
+            src = m->mNormals;
+            dest = new float[3 * num];
+            for (j = 0; j < num; ++j) {
+                dest[j*3]   = src[j].x;
+                dest[j*3+1] = src[j].y;
+                dest[j*3+2] = src[j].z;
+            }
+            norms = new DataBlock<3,float>(num, dest);
+        }
 
         IDataBlock* uvs = NULL;
         //logger.info << "numUV: " << m->GetNumUVChannels() << logger.end;
@@ -116,6 +116,7 @@ void readMeshes(aiMesh** ms, unsigned int size) {
         Indices* indices = new Indices(m->mNumFaces*3, indexArr);
 
         add_db_scm(uvs);
+        add_db_scm(norms);
         add_db_scm(verts);
         add_db_scm(indices);
         add_mesh_scm(m->mMaterialIndex);

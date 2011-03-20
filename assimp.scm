@@ -16,13 +16,13 @@ c-declare-end
 
 (c-define-type DataBlock (pointer "IDataBlock"))
 
-(define *current-file-dir* "")
+(define *current-file-dir* #f)
 
 (define *loaded-blocks* '())
 (define *loaded-meshes* '())
 (define *loaded-materials* '())
-(define *scene-root* (instantiate SceneParent))
-(define *scene-parent* *scene-root*)
+(define *scene-root* #f)
+(define *scene-parent* #f)
 
 (define *transformation-pos* (make-vector 3 0.0))
 (define *transformation-rot* (instantiate Quaternion))
@@ -86,7 +86,8 @@ c-declare-end
 			     :geotype 'triangles
 			     :indices (list-ref (cdr (list-ref *loaded-meshes* i)) 0)
 			     :vertices (list-ref (cdr (list-ref *loaded-meshes* i)) 1)
-			     :uvs (list-ref (cdr (list-ref *loaded-meshes* i)) 2)
+			     :normals (list-ref (cdr (list-ref *loaded-meshes* i)) 2)
+			     :uvs (list-ref (cdr (list-ref *loaded-meshes* i)) 3)
 			     :texture (list-ref *loaded-materials* (car (list-ref *loaded-meshes* i))))
 			 children))))
 
@@ -135,6 +136,13 @@ c-load-scene-end
   (set! *loaded-meshes* '())
   (set! *loaded-materials* '())
   (if (c-load-scene path)
-      *scene-root*
+      (let ([root *scene-root*])
+	;; cleanup globals
+	(set! *scene-root* #f)
+	(set! *scene-parent* #f)
+	(set! *current-file-dir* #f)
+	(set! *loaded-blocks* '())
+	(set! *loaded-meshes* '())
+	(set! *loaded-materials* '())
+	root)
       #f))
-

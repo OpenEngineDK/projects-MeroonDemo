@@ -12,12 +12,32 @@ c-declare-end
    [= c-matrix :immutable 
       :initializer (c-lambda () FloatArray
 		     "float* m = new float[9];
-                     memset(m, 0x0, sizeof(float) * 9); 
-                     m[0]  = 1.0f;
-                     m[4]  = 1.0f;
-                     m[8] = 1.0f;
-		     ___result_voidstar = m;"
-		     )]))
+                      memset(m, 0x0, sizeof(float) * 9); 
+                      m[0]  = 1.0f;
+                      m[4]  = 1.0f;
+                      m[8] = 1.0f;
+       		      ___result_voidstar = m;")]))
+
+(define-method (initialize! (o Quaternion))
+  ;; free the c-matrix when object is reclaimed by the gc.
+  (make-will o (lambda (x) 
+   		 ;; (display "delete array\n")
+		 (with-access x (Quaternion c-matrix)
+	           ((c-lambda (FloatArray) void
+		      "delete[] ___arg1;")
+		   c-matrix))))
+  (call-next-method))
+
+     ;; :initializer (lambda ()
+
+       ;; 		    c-lambda () FloatArray
+      ;; 		     "float* m = new float[9];
+      ;;                memset(m, 0x0, sizeof(float) * 9); 
+      ;;                m[0]  = 1.0f;
+      ;;                m[4]  = 1.0f;
+      ;;                m[8] = 1.0f;
+      ;; 		     ___result_voidstar = m;"
+      ;; 		     )]))
 
 
 (define-generic (normalize! (o))

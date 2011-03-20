@@ -4,7 +4,8 @@
 
 (define-class GLContext Context 
   ([= textures :initializer list]
-   [= shaders :initializer list]))
+   [= shaders :initializer list]
+   [= light-count :initializer (lambda () 0)]))
 
 (define-generic (lookup-texture-id (ctx GLContext) (texture Texture))
   (with-access ctx (GLContext textures)
@@ -31,12 +32,18 @@
   ;; (show (Camera-view (Canvas3D-camera can)))
   (gl-viewing-volume (Projection-c-matrix (Camera-proj (Canvas3D-camera can)))
 		     (Transformation-c-matrix (Camera-view (Canvas3D-camera can))))
+  (with-access ctx (GLContext light-count)
+    (set! light-count 0))
+  (gl-setup-lights ctx (Canvas3D-scene can))
   (gl-render-scene ctx (Canvas3D-scene can)))
 
 ;; Scene rendering
 
-(define-generic (gl-render-scene ctx (node Scene))
+(define-generic (gl-render-scene ctx (node Object))
   (error "Unsupported scene node"))
+
+(define-method (gl-render-scene ctx (node Scene))
+  #f)
 
 (define-method (gl-render-scene ctx (node SceneParent))
   (do ([children (SceneParent-children node) (cdr children)])
@@ -49,10 +56,10 @@
   (gl-pop-transformation))
 
 (define-method (gl-render-scene ctx (node MeshNode))
-  (with-access node (MeshNode indices vertices uvs texture)
+  (with-access node (MeshNode indices vertices normals uvs texture)
     (with-access ctx (GLContext textures)
       (if (equal? texture #f)
-	  (gl-apply-mesh indices vertices uvs 0)
+	  (gl-apply-mesh indices vertices normals uvs 0)
 	  (let ([tid (lookup-texture-id ctx texture)])
 	    (if (equal? tid #f)
 		(begin
@@ -61,12 +68,12 @@
 		    (set! textures (cons (cons texture tid) textures))
 		    ;; (display tid)
 		    ;; (display "\n")
-		    (gl-apply-mesh indices vertices uvs tid)))
+		    (gl-apply-mesh indices vertices normals uvs tid)))
 		(begin
 		  ;; (display "found texture: ")
 		    ;; (display tid)
 		    ;; (display "\n")
-		  (gl-apply-mesh indices vertices uvs tid))))))))
+		  (gl-apply-mesh indices vertices normals uvs tid))))))))
 
 (define-method (gl-render-scene ctx (node ShaderNode))
   (let ([shader-tag (ShaderNode-tags node 0)])
@@ -86,6 +93,45 @@
       (call-next-method))))
             
             
+(define-generic (gl-setup-lights ctx (node Object))
+  (error "Unsupported scene node"))
+
+(define-generic (gl-setup-light ctx (light Light))
+  (error "Unsupported scene node"))
+
+(define-method (gl-setup-lights ctx (node SceneParent))
+  (do ([children (SceneParent-children node) (cdr children)])
+      ((null? children))
+    (gl-setup-lights ctx (car children))))
+
+(define-method (gl-setup-lights ctx (node TransformationNode))
+  (gl-push-transformation (TransformationNode-transformation node))
+  (call-next-method) ;; i.e., on SceneParent
+  (gl-pop-transformation))
+
+(define-method (gl-setup-lights ctx (node Scene))
+  #f)
+
+(define-method (gl-setup-lights ctx (node LightNode))
+  (gl-setup-light ctx (LightNode-light node)))
+
+(define-method (gl-setup-light ctx (node PointLight))
+  (with-access ctx (GLContext light-count)
+    ((c-lambda (int) void 
+#<<c-gl-setup-light-end
+    GLint light = GL_LIGHT0 + ___arg1;
+    const float pos[] = {0.0, 0.0, 0.0, 1.0};
+    glLightfv(light, GL_POSITION, pos);
+    // glLightfv(light, GL_AMBIENT, color);
+    // glLightfv(light, GL_DIFFUSE, color);
+    // glLightfv(light, GL_SPECULAR, color);
+    // glLightf(light, GL_CONSTANT_ATTENUATION, node->constAtt);
+    // glLightf(light, GL_LINEAR_ATTENUATION, node->linearAtt);
+    // glLightf(light, GL_QUADRATIC_ATTENUATION, node->quadAtt);
+    glEnable(light);
+c-gl-setup-light-end
+) light-count)
+    (set! light-count (+ 1 light-count))))
 
 
 ;;; shaders
@@ -190,7 +236,7 @@ APPLY-SHADER-END
 // todo: set these gl state parameters once in an inititialization phase.
 // glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-//glEnable(GL_LIGHTING); 
+glEnable(GL_LIGHTING); 
 glEnable(GL_TEXTURE_2D); 
 glEnable(GL_DEPTH_TEST);						   
 glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
@@ -228,13 +274,13 @@ gl-bind-texture-end
 ) width height c-data))))
 
 (define gl-apply-mesh
-  (c-lambda (DataBlock DataBlock DataBlock int) void
+  (c-lambda (DataBlock DataBlock DataBlock DataBlock int) void
 #<<apply-mesh-end
 
 
-if (___arg4) {
-  //printf("binding tid: %x\n", ___arg4);
-  glBindTexture(GL_TEXTURE_2D, ___arg4);
+if (___arg5) {
+  //printf("binding tid: %x\n", ___arg5);
+  glBindTexture(GL_TEXTURE_2D, ___arg5);
 }
 else {
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -245,16 +291,24 @@ glVertexPointer(___arg2->GetDimension(), ___arg2->GetType(), 0, ___arg2->GetVoid
 CHECK_FOR_GL_ERROR();
 
 if (___arg3) {
-  //printf("using uvs: %x\n", ___arg3);
+  //printf("using normals: %x\n", ___arg3);
+  glEnableClientState(GL_NORMAL_ARRAY);
+  glNormalPointer(GL_FLOAT, 0, ___arg3->GetVoidDataPtr());
+}
+
+if (___arg4) {
+  //printf("using uvs: %x\n", ___arg4);
   glClientActiveTexture(GL_TEXTURE0);
   glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-  glTexCoordPointer(___arg3->GetDimension(), GL_FLOAT, 0, ___arg3->GetVoidDataPtr());
+  glTexCoordPointer(___arg4->GetDimension(), GL_FLOAT, 0, ___arg4->GetVoidDataPtr());
 }
+
 glDrawElements(GL_TRIANGLES, ___arg1->GetSize(), ___arg1->GetType(), ___arg1->GetVoidData());
 CHECK_FOR_GL_ERROR();
 
 glDisableClientState(GL_VERTEX_ARRAY);
 glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+glDisableClientState(GL_NORMAL_ARRAY);
 glBindTexture(GL_TEXTURE_2D, 0);
 
 apply-mesh-end

@@ -25,20 +25,30 @@ c-declare-end
 		     ___result_voidstar = m;"
 		     )]))
 
+(define-method (initialize! (o Transformation))
+  ;; free the c-matrix when object is reclaimed by the gc.
+  (make-will o (lambda (x) 
+   		 ;; (display "delete array\n")
+		 (with-access x (Transformation c-matrix)
+	           ((c-lambda (FloatArray) void
+		      "delete[] ___arg1;")
+		   c-matrix))))
+  (call-next-method))
+
 (define c-update-transformation-pivot!
   (c-lambda (float float float float float float FloatArray) void
 #<<UPDATE_TRANSFORMATION_PIVOT_END
 // printf("pivot\n");
-float x      = ___arg1;
-float y      = ___arg2;
-float z      = ___arg3;
-float px     = ___arg4;
-float py     = ___arg5;
-float pz     = ___arg6;
+const float x      = ___arg1;
+const float y      = ___arg2;
+const float z      = ___arg3;
+const float px     = ___arg4;
+const float py     = ___arg5;
+const float pz     = ___arg6;
 
-float dx = x - px;
-float dy = y - py;
-float dz = z - pz;
+const float dx = x - px;
+const float dy = y - py;
+const float dz = z - pz;
 
 float* m     = ___arg7;
 
@@ -52,9 +62,9 @@ UPDATE_TRANSFORMATION_PIVOT_END
 (define c-update-transformation-pos!
   (c-lambda (float float float FloatArray) void
 #<<UPDATE_TRANSFORMATION_POS_END
-float x  = ___arg1;
-float y  = ___arg2;
-float z  = ___arg3;
+const float x  = ___arg1;
+const float y  = ___arg2;
+const float z  = ___arg3;
 float* m = ___arg4;
 
 // fourth column
@@ -67,11 +77,11 @@ UPDATE_TRANSFORMATION_POS_END
 (define c-update-transformation-rot-and-scl!
   (c-lambda (float float float FloatArray FloatArray) void
 #<<UPDATE_TRANSFORMATION_ROT_AND_SCL_END
-float x      = ___arg1;
-float y      = ___arg2;
-float z      = ___arg3;
-float* m_rot = ___arg4;
-float* m     = ___arg5;
+const float x      = ___arg1;
+const float y      = ___arg2;
+const float z      = ___arg3;
+const float* m_rot = ___arg4;
+float* m           = ___arg5;
 
 // first column
 m[0] = m_rot[0] * x;

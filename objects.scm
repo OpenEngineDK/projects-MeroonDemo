@@ -86,15 +86,30 @@ UPDATE_PROJECTION_END
       :initializer (lambda () (instantiate Transformation))]))
 
 (define-class MeshNode Scene
-  ([= geotype  :immutable]
+  ([= geotype  :immutable :initializer (lambda () 'triangles)]
    [= indices  :immutable]
    [= vertices :immutable]
+   [= normals  :immutable :initializer (lambda () #f)]
    [= uvs      :immutable :initializer (lambda () #f)]
    ;; [= datablocks :immutable]
    [= texture :immutable :initializer (lambda () #f)]))
 
 (define-class ShaderNode SceneParent ;; Effect
   ([* tags :immutable]))
+
+
+(define-class Light Object 
+  ([= ambient  :initializer (lambda () (vector .2 .2 .2 1.))]
+   [= diffuse  :initializer (lambda () (vector .8 .8 .8 1.))]
+   [= specular :initializer (lambda () (vector 0. 0. 0. 1.))]))
+
+(define-class PointLight Light
+  ([= constant-att  :initializer (lambda () 1.)]
+   [= linear-att    :initializer (lambda () 0.)]
+   [= quadratic-att :initializer (lambda () 0.)]))
+
+(define-class LightNode Scene
+  ([= light :immutable :initializer (lambda () (instantiate PointLight))]))
 
 (define-generic (rotate! (o) angle vec)
   (error (string-append "Object of type "
@@ -138,6 +153,8 @@ UPDATE_PROJECTION_END
 (define-method (scale! (node TransformationNode) x y z)
   (scale! (TransformationNode-transformation node) x y z))
 
+(define (uniform-scale! o s) 
+  (scale! o s s s))
 
 (define-method (show (o Canvas3D) . stream)
   (let ([stream (if (pair? stream) (car stream) (current-output-port))])
