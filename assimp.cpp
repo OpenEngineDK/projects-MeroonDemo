@@ -3,22 +3,41 @@
 #include <aiPostProcess.h> // Post processing flags
 
 #include <Resources/DataBlock.h>
+#include <cstdio>
 
 using namespace OpenEngine::Resources;
 
-void add_vertex_db_scm(IDataBlock* db);
-void add_index_db_scm(IDataBlock* db);
-void add_mesh_scm();
+void add_db_scm(IDataBlock* db);
+void add_false_db_scm();
+void add_mesh_scm(int i);
 void set_pos_scm(float x, float y, float z);
 void set_rot_scm(float w, float x, float y, float z);
 void set_scale_scm(float x, float y, float z);
 void append_transformation_node_scm();
 void append_mesh_node_scm(int i);
 
+void append_material_scm(char* path);
+void append_empty_material_scm();
+
+void readMaterials(aiMaterial** ms, unsigned int size) {
+    printf("c read materials\n");
+    unsigned int i;
+    for (i = 0; i < size; ++i) {
+        aiMaterial* m = ms[size-i-1];
+
+        aiString path;
+        if (AI_SUCCESS == m->Get(AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, 0), path))
+            append_material_scm(path.data);
+        else append_empty_material_scm();
+    }
+}
+
+
 void readMeshes(aiMesh** ms, unsigned int size) {
+    printf("c read meshes\n");
     unsigned int i, j;
     for (i = 0; i < size; ++i) {
-        aiMesh* m = ms[i];
+        aiMesh* m = ms[size-i-1]; // iterate in reverse order since we append to a scheme list
 
         // read vertices
         unsigned int num = m->mNumVertices;
@@ -44,35 +63,35 @@ void readMeshes(aiMesh** ms, unsigned int size) {
         //     norm = Float3DataBlockPtr(new DataBlock<3,float>(num, dest));
         // }
 
-        // IDataBlockList texc;
-        // //logger.info << "numUV: " << m->GetNumUVChannels() << logger.end;
-        // for (j = 0; j < m->GetNumUVChannels(); ++j) {
-        //     // read texture coordinates
-        //     unsigned int dim = m->mNumUVComponents[j];
-        //     //logger.info << "numUVComponents: " << dim << logger.end;
-        //     src = m->mTextureCoords[j];
-        //     dest = new float[dim * num];
-        //     for (unsigned int k = 0; k < num; ++k) {
-        //         for (unsigned int l = 0; l < dim; ++l) {
-        //             // dest[k*dim]   = src[k].x;
-        //             // dest[k*dim+1] = src[k].y;
-        //             // dest[k*dim+2] = src[k].z;
-        //              dest[k*dim+l] = src[k][l];
-        //         }
-        //             //logger.info << "texc: (" << src[k].x << ", " << src[k].y << ")" << logger.end; 
-        //     }
-        //     switch (dim) {
-        //     case 2:
-        //         texc.push_back(Float2DataBlockPtr(new DataBlock<2,float>(num, dest)));
-        //         break;
-        //     case 3:
-        //         texc.push_back(Float3DataBlockPtr(new DataBlock<3,float>(num, dest)));
-        //         break;
-        //     default: 
-        //         delete dest;
-        //         Warning("Unsupported texture coordinate dimension");
-        //     };
-        // }
+        IDataBlock* uvs = NULL;
+        //logger.info << "numUV: " << m->GetNumUVChannels() << logger.end;
+        if (m->GetNumUVChannels() > 0) {
+            unsigned int j = 0;
+            // read texture coordinates
+            unsigned int dim = m->mNumUVComponents[j];
+            //logger.info << "numUVComponents: " << dim << logger.end;
+            src = m->mTextureCoords[j];
+            dest = new float[dim * num];
+            for (unsigned int k = 0; k < num; ++k) {
+                for (unsigned int l = 0; l < dim; ++l) {
+                    // dest[k*dim]   = src[k].x;
+                    // dest[k*dim+1] = src[k].y;
+                    // dest[k*dim+2] = src[k].z;
+                     dest[k*dim+l] = src[k][l];
+                }
+                    //logger.info << "texc: (" << src[k].x << ", " << src[k].y << ")" << logger.end; 
+            }
+            switch (dim) {
+            case 2:
+                uvs = new DataBlock<2,float>(num, dest);
+                break;
+            case 3:
+                uvs = new DataBlock<3,float>(num, dest);
+                break;
+            default: 
+                delete dest;
+            };
+        }
 
         // Float3DataBlockPtr col;
         // if (m->GetNumColorChannels() > 0) {
@@ -96,9 +115,10 @@ void readMeshes(aiMesh** ms, unsigned int size) {
         }
         Indices* indices = new Indices(m->mNumFaces*3, indexArr);
 
-        add_index_db_scm(indices);
-        add_vertex_db_scm(verts);
-        add_mesh_scm();
+        add_db_scm(uvs);
+        add_db_scm(verts);
+        add_db_scm(indices);
+        add_mesh_scm(m->mMaterialIndex);
     }
 }
 

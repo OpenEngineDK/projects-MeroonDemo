@@ -3,7 +3,24 @@
 ;; Context definition
 
 (define-class GLContext Context 
-  ([= shaders :initializer list]))
+  ([= textures :initializer list]
+   [= shaders :initializer list]))
+
+(define-generic (lookup-texture-id (ctx GLContext) (texture Texture))
+  (with-access ctx (GLContext textures)
+    (letrec ([lookup (lambda (key xs)
+		       (cond
+                        [(null? xs)
+                         #f]
+                        [(pair? xs)
+			 (let ([p (car xs)])
+			   (if (pair? p)
+			       (if (equal? key (car p))
+				   (cdr p)
+				   (lookup key (cdr xs)))
+			       (error "not a key value pair")))]
+			[else (error "not a list")]))])
+      (lookup texture textures))))
 
 
 ;; Canvas rendering
@@ -31,15 +48,24 @@
   (gl-pop-transformation))
 
 (define-method (gl-render-scene ctx (node MeshNode))
-  (with-access node (MeshNode datablocks)
-    (let ([v? (assoc 'vertices datablocks)]
-          [i? (assoc 'indices datablocks)])
-      (if (and v? i?)
-          (let ([vs (cdr v?)]
-                [is (cdr i?)])
-	    ;; (display "gl-apply-mesh")
-            (gl-apply-mesh vs is))
-          (error "Invalid data block (must define verticies and indices")))))
+  (with-access node (MeshNode indices vertices uvs texture)
+    (with-access ctx (GLContext textures)
+      (if (equal? texture #f)
+	  (gl-apply-mesh indices vertices uvs 0)
+	  (let ([tid (lookup-texture-id ctx texture)])
+	    (if (equal? tid #f)
+		(begin
+		  ;; (display "bind texture: ")
+		  (let ([tid (gl-bind-texture texture)])
+		    (set! textures (cons (cons texture tid) textures))
+		    ;; (display tid)
+		    ;; (display "\n")
+		    (gl-apply-mesh indices vertices uvs tid)))
+		(begin
+		  ;; (display "found texture: ")
+		    ;; (display tid)
+		    ;; (display "\n")
+		  (gl-apply-mesh indices vertices uvs tid))))))))
 
 (define-method (gl-render-scene ctx (node ShaderNode))
   (let ([shader-tag (ShaderNode-tags node 0)])
@@ -89,6 +115,10 @@ BLUE-FRAG-END
 using namespace OpenEngine::Resources;
 c-declare-end
 )
+
+(define null
+  (c-lambda () DataBlock "___result_voidstar = NULL;"))
+
 
 (define gl-make-program
   (c-lambda (char-string char-string) int 
@@ -148,15 +178,84 @@ APPLY-SHADER-END
 ))
 
 
+(c-define-type CharArray (pointer "char"))
+
+(define (gl-bind-texture texture)
+  (with-access texture (Texture image)
+    (with-access image (Bitmap width height c-data)
+      ((c-lambda (int int CharArray) int
+#<<gl-bind-texture-end
+
+// todo: set these gl state parameters once in an inititialization phase.
+// glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+//glEnable(GL_LIGHTING); 
+glEnable(GL_TEXTURE_2D); 
+glEnable(GL_DEPTH_TEST);						   
+glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+glShadeModel(GL_SMOOTH);
+CHECK_FOR_GL_ERROR();
+
+GLuint texid;
+glGenTextures(1, &texid);
+CHECK_FOR_GL_ERROR();
+
+//printf("tid: %x\n", texid);
+//printf("width: %d height: %d data: %x\n", ___arg1, ___arg2, ___arg3);
+
+glBindTexture(GL_TEXTURE_2D, texid);
+
+glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+CHECK_FOR_GL_ERROR();
+
+glTexImage2D(GL_TEXTURE_2D,
+	     0, // mipmap level
+	     GL_RGBA,
+	     ___arg1,
+	     ___arg2,
+	     0, // border
+	     GL_RGBA,
+	     GL_UNSIGNED_BYTE,
+	     ___arg3);
+CHECK_FOR_GL_ERROR();
+glBindTexture(GL_TEXTURE_2D, 0);
+___result = texid;
+
+gl-bind-texture-end
+) width height c-data))))
+
 (define gl-apply-mesh
-  (c-lambda (DataBlock DataBlock) void
+  (c-lambda (DataBlock DataBlock DataBlock int) void
 #<<apply-mesh-end
+
+
+if (___arg4) {
+  //printf("binding tid: %x\n", ___arg4);
+  glBindTexture(GL_TEXTURE_2D, ___arg4);
+}
+else {
+  glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 glEnableClientState(GL_VERTEX_ARRAY);
-glVertexPointer(___arg1->GetDimension(), ___arg1->GetType(), 0, ___arg1->GetVoidDataPtr());
+glVertexPointer(___arg2->GetDimension(), ___arg2->GetType(), 0, ___arg2->GetVoidDataPtr());
 CHECK_FOR_GL_ERROR();
-glDrawElements(GL_TRIANGLES, ___arg2->GetSize(), ___arg2->GetType(), ___arg2->GetVoidData());
+
+if (___arg3) {
+  //printf("using uvs: %x\n", ___arg3);
+  glClientActiveTexture(GL_TEXTURE0);
+  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+  glTexCoordPointer(___arg3->GetDimension(), GL_FLOAT, 0, ___arg3->GetVoidDataPtr());
+}
+glDrawElements(GL_TRIANGLES, ___arg1->GetSize(), ___arg1->GetType(), ___arg1->GetVoidData());
 CHECK_FOR_GL_ERROR();
+
 glDisableClientState(GL_VERTEX_ARRAY);
+glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+glBindTexture(GL_TEXTURE_2D, 0);
+
 apply-mesh-end
 ))
 

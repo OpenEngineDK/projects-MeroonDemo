@@ -5,10 +5,10 @@ c-declare-end
 (c-define-type FloatArray (pointer "float"))
 
 (define-class Quaternion Object
-  ([= w  :mutable :initializer (lambda () 1.0)]
-   [= x  :mutable :initializer (lambda () 0.0)]
-   [= y  :mutable :initializer (lambda () 0.0)]
-   [= z  :mutable :initializer (lambda () 0.0)]
+  ([= w  :initializer (lambda () 1.0)]
+   [= x  :initializer (lambda () 0.0)]
+   [= y  :initializer (lambda () 0.0)]
+   [= z  :initializer (lambda () 0.0)]
    [= c-matrix :immutable 
       :initializer (c-lambda () FloatArray
 		     "float* m = new float[9];
@@ -67,12 +67,11 @@ m[8] = 1-2*x*x-2*y*y;
 
 UPDATE_C_MATRIX_END
 )
-     (Quaternion-w q)
-     (Quaternion-x q)
-     (Quaternion-y q)
-     (Quaternion-z q)
-     (Quaternion-c-matrix q)))
- ;;     (error "Can not update c-matrix of non-quaternion")))
+   (Quaternion-w q)
+   (Quaternion-x q)
+   (Quaternion-y q)
+   (Quaternion-z q)
+   (Quaternion-c-matrix q)))
 
 (define (make-conjugate q) 
   (if (Quaternion? q)

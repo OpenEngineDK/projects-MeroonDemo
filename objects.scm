@@ -59,7 +59,6 @@ UPDATE_PROJECTION_END
    (Projection-far o)
    (Projection-c-matrix o)))
     
-
 (define-class Camera Object
   ([= proj   :mutable :initializer 
       (lambda ()
@@ -87,8 +86,12 @@ UPDATE_PROJECTION_END
       :initializer (lambda () (instantiate Transformation))]))
 
 (define-class MeshNode Scene
-  ([= geotype :immutable]
-   [= datablocks :immutable]))
+  ([= geotype  :immutable]
+   [= indices  :immutable]
+   [= vertices :immutable]
+   [= uvs      :immutable :initializer (lambda () #f)]
+   ;; [= datablocks :immutable]
+   [= texture :immutable :initializer (lambda () #f)]))
 
 (define-class ShaderNode SceneParent ;; Effect
   ([* tags :immutable]))
@@ -114,14 +117,27 @@ UPDATE_PROJECTION_END
                         " is not movable")))
 
 (define-method (move! (o Transformation) x y z)
-  (Transformation-translate o x y z))
+  (Transformation-translate o x y z)
+  (update-transformation-pos! o))
 
 (define-method (move! (node TransformationNode) x y z)
   (move! (TransformationNode-transformation node) x y z))
 
 (define-method (move! (cam Camera) x y z)
-  (move! (Camera-view cam) x y z)
-  (update-transformation-pos! (Camera-view cam)))
+  (move! (Camera-view cam) x y z))
+
+(define-generic (scale! (o) x y z)
+  (error (string-append "Object of type "
+                        (->Class (object->class o))
+                        " is not scalable")))
+
+
+(define-method (scale! (o Transformation) x y z)
+  (Transformation-scale o x y z)
+  (update-transformation-rot-and-scl! o))
+
+(define-method (scale! (node TransformationNode) x y z)
+  (scale! (TransformationNode-transformation node) x y z))
 
 
 (define-method (show (o Canvas3D) . stream)

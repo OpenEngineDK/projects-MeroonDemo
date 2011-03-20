@@ -12,6 +12,7 @@ GAMBIT_ADD_EXECUTABLE(MeroonDemo
   vector.scm
   quaternion.scm
   transformation.scm
+  texture.scm
   datablock.scm
   objects.scm
   render.scm
@@ -32,5 +33,6 @@ TARGET_LINK_LIBRARIES(MeroonDemo
   Extensions_AssimpResource ## just a hack to get the assimp source which is included in the extension
   Extensions_OBJResource
   Extensions_TGAResource
+  Extensions_SDLImage
   ${GLUT_LIBRARIES}
 )

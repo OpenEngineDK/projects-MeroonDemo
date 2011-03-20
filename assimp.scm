@@ -3,8 +3,11 @@
 #include <aiScene.h>       // Output data structure
 #include <aiPostProcess.h> // Post processing flags
 #include <Resources/DataBlock.h>
+#include <cstdio>
+
 using namespace OpenEngine::Resources;
 
+void readMaterials(aiMaterial** ms, unsigned int size);
 void readMeshes(aiMesh** ms, unsigned int size);
 void readScene(const aiScene* scene);
 
@@ -13,8 +16,11 @@ c-declare-end
 
 (c-define-type DataBlock (pointer "IDataBlock"))
 
+(define *current-file-dir* "")
+
 (define *loaded-blocks* '())
 (define *loaded-meshes* '())
+(define *loaded-materials* '())
 (define *scene-root* (instantiate SceneParent))
 (define *scene-parent* *scene-root*)
 
@@ -22,19 +28,30 @@ c-declare-end
 (define *transformation-rot* (instantiate Quaternion))
 (define *transformation-scale* (make-vector 3 1.0))
 
-(c-define (add-vertex-db db)
-    (DataBlock) void "add_vertex_db_scm" ""
-    (set! *loaded-blocks* (cons (cons 'vertices db) *loaded-blocks*)))
+(define (->file-dir path) 
+  (if (string? path)
+      (let ([len (string-length path)])
+	(letrec ([last-sep (lambda (i r) 
+			     (cond
+			      [(< i len)
+			       (if (equal? (string-ref path i) #\/)
+				   (last-sep (+ 1 i) i)
+				   (last-sep (+ 1 i) r))]
+			      [else r]))])
+	  (substring path 0 (+ 1 (last-sep 0 0)))))))
 
-(c-define (add-index-db db)
-    (DataBlock) void "add_index_db_scm" ""
-    (set! *loaded-blocks* (cons (cons 'indices db) *loaded-blocks*)))
+(c-define (add-db db)
+    (DataBlock) void "add_db_scm" ""
+    (set! *loaded-blocks* (cons db *loaded-blocks*)))
+
+(c-define (add-false-db)
+    () void "add_false_db_scm" ""
+    (set! *loaded-blocks* (cons #f *loaded-blocks*)))
 
 
-(c-define (add-mesh)
-    () void "add_mesh_scm" ""
-    (display "add-mesh!")
-    (set! *loaded-meshes* (cons *loaded-blocks* *loaded-meshes*))
+(c-define (add-mesh material-index)
+    (int) void "add_mesh_scm" ""
+    (set! *loaded-meshes* (cons (cons material-index *loaded-blocks*) *loaded-meshes*))
     (set! *loaded-blocks* '()))
 
 (c-define (set-pos x y z)
@@ -62,19 +79,33 @@ c-declare-end
 
 (c-define (append-mesh-node i)
     (int) void "append_mesh_node_scm" ""
-    (display "append-mesh-node!")
     (with-access *scene-parent* (SceneParent children)
 		 (set! children 
 		       (cons 
 			 (instantiate MeshNode 
-				      :geotype 'triangles
-				      :datablocks (list-ref *loaded-meshes* i))
+			     :geotype 'triangles
+			     :indices (list-ref (cdr (list-ref *loaded-meshes* i)) 0)
+			     :vertices (list-ref (cdr (list-ref *loaded-meshes* i)) 1)
+			     :uvs (list-ref (cdr (list-ref *loaded-meshes* i)) 2)
+			     :texture (list-ref *loaded-materials* (car (list-ref *loaded-meshes* i))))
 			 children))))
+
+
+(c-define (append-material path)
+    (char-string) void "append_material_scm" ""
+    (display "APPEND TEX\n")
+    (set! *loaded-materials* (cons (instantiate Texture :image (load-bitmap (string-append *current-file-dir* path))) *loaded-materials*)))
+
+(c-define (append-empty-material)
+    () void "append_empty_material_scm" ""
+    (display "APPEND EMPTY TEX\n")
+    (set! *loaded-materials* (cons (instantiate Texture) *loaded-materials*)))
 
 
 (define c-load-scene
   (c-lambda (char-string) bool
 #<<c-load-scene-end
+printf("c load scene!\n");
 Assimp::Importer importer;
 const aiScene* scene = importer.ReadFile( ___arg1, 
 					  aiProcess_CalcTangentSpace       | 
@@ -91,6 +122,7 @@ if( !scene ) {
   ___result = false;
 }
 else {
+  readMaterials(scene->mMaterials, scene->mNumMaterials);
   readMeshes(scene->mMeshes, scene->mNumMeshes);
   readScene(scene);
   ___result = true;
@@ -102,11 +134,11 @@ c-load-scene-end
 (define (load-scene path)
   (set! *scene-root* (instantiate SceneParent))
   (set! *scene-parent* *scene-root*)
+  (set! *current-file-dir* (->file-dir path))
+  (set! *loaded-blocks* '())
+  (set! *loaded-meshes* '())
+  (set! *loaded-materials* '())
   (if (c-load-scene path)
-      (begin
-	(pretty-print "yes-hest")
-	*scene-root*)
-      (begin
-	(pretty-print "no-hest")
-	#f)))
+      *scene-root*
+      #f))
 

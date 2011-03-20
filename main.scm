@@ -16,22 +16,30 @@
 
 ;; (compat-add-resource-path "resources/")
 
+(define dragon-head-path "resources/Dragon/DragonHead.obj")
+(define dragon-jaw-path "resources/Dragon/DragonJaw.obj")
+(define arne-path "resources/arme_arne/ArmeArne02.DAE")
+(define plane-path "resources/plane/seymourplane_triangulate.dae")
+
 (define dragon-head
-    (load-scene "resources/Dragon/DragonHead.obj"))
+    (load-scene dragon-head-path))
 
 (define dragon-jaw
-    (load-scene "resources/Dragon/DragonJaw.obj"))
-;;(compat-load-model "Dragon/DragonHead.obj"))
+    (load-scene dragon-jaw-path))
+
+(define arne 
+  (load-scene arne-path))
+
+(define plane 
+  (load-scene plane-path))
 
 (define mesh (instantiate MeshNode
                 :geotype 'triangles
-                :datablocks
-                (list 
-                 (cons 'indices  (make-datablock '((0) (1) (2))))
-                 (cons 'vertices (make-datablock '((0. 0. 0.)
-                                                   (1. 0. 0.)
-                                                   (0. 1. 0.)))))))
-(define shn   (instantiate ShaderNode
+                :indices (make-datablock '((0) (1) (2)))
+		:vertices (make-datablock '((0. 0. 0.)
+					    (1. 0. 0.)
+					    (0. 1. 0.)))))
+(define shn (instantiate ShaderNode
                 :children (list mesh)
                 :tags 'blue))
 
@@ -42,7 +50,7 @@
 (define jaw-node (instantiate TransformationNode
                 :children (list dragon-jaw)))
 (define rot-angle 0.)
-(define rot-delta 0.1)
+(define rot-delta 0.001)
 
 (define top (instantiate TransformationNode
                 :children (list dragon-head jaw-node) ;; tnode)
@@ -63,20 +71,19 @@
   (display "Starting main loop.")
   (newline)
   (run-glut-loop (lambda ()
-                   (render! ctx can)
-                   (with-access
+		   (render! ctx can)
+		   (with-access
 		    (TransformationNode-transformation tnode)
 		    (Transformation translation)
 		    (if (> (vector-ref translation 0) 2.)
 			(set! translation (vector 0. 0. 0.))
 			(move! tnode .1 .1 .0)))
 		   (if (<= rot-angle 0.)
-		       (set! rot-delta .1)
+		       (set! rot-delta .01)
 		       (if (>= rot-angle (* pi .2))
-			   (set! rot-delta -.1)
+			   (set! rot-delta -.001)
 			   #t))
 		   (set! rot-angle (+ rot-angle rot-delta))
 		   (rotate! jaw-node rot-delta (vector 1. 0. 0.))
-		   (rotate! cam .1 (vector 0. 1. 0.))
-		   (thread-sleep! 0.1))))
-
+		   (rotate! cam .01 (vector 0. 1. 0.))
+		   (thread-sleep! 0.005))))
