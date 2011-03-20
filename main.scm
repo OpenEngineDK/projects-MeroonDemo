@@ -28,6 +28,7 @@
     (load-scene dragon-jaw-path))
 
 (define jaw-node (instantiate TransformationNode
+                   :transformation (instantiate Transformation :pivot (vector 0. 0. -15.)) 
                    :children (list dragon-jaw)))
 
 (define dragon (instantiate TransformationNode :children (list dragon-head jaw-node)))
@@ -53,7 +54,7 @@
                 :children (list shn)))
 
 (define rot-angle 0.)
-(define rot-delta 0.001)
+(define rot-delta 0.01)
 
 (define top (instantiate TransformationNode
                 :children (list dragon) ;; tnode)
@@ -88,7 +89,7 @@
 		   (if (<= rot-angle 0.)
 		       (set! rot-delta .01)
 		       (if (>= rot-angle (* pi .2))
-			   (set! rot-delta -.001)
+			   (set! rot-delta -.01)
 			   #t))
 		   (set! rot-angle (+ rot-angle rot-delta))
 		   (rotate! jaw-node rot-delta (vector 1. 0. 0.))
