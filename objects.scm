@@ -131,7 +131,6 @@ UPDATE_PROJECTION_END
                         (->Class (object->class o))
                         " is not scalable")))
 
-
 (define-method (scale! (o Transformation) x y z)
   (Transformation-scale o x y z)
   (update-transformation-rot-and-scl! o))

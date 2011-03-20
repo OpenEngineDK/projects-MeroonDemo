@@ -27,6 +27,11 @@
 (define dragon-jaw
     (load-scene dragon-jaw-path))
 
+(define jaw-node (instantiate TransformationNode
+                   :children (list dragon-jaw)))
+
+(define dragon (instantiate TransformationNode :children (list dragon-head jaw-node)))
+
 (define arne 
   (load-scene arne-path))
 
@@ -47,19 +52,20 @@
 (define tnode (instantiate TransformationNode
                 :children (list shn)))
 
-(define jaw-node (instantiate TransformationNode
-                :children (list dragon-jaw)))
 (define rot-angle 0.)
 (define rot-delta 0.001)
 
 (define top (instantiate TransformationNode
-                :children (list dragon-head jaw-node) ;; tnode)
+                :children (list dragon) ;; tnode)
                 :transformation (instantiate Transformation
 				    :translation (vector -1.0 -1.0 0.0))))
 
 
 (define cam (instantiate Camera))
 (move! cam 0.0 0.0 200.0)
+
+
+(define modules (make-modules (make-rotator dragon 0.01 (vector 0.0 1.0 0.0))))
 
 (let* ([can   (instantiate Canvas3D
                 :width  1024
@@ -71,6 +77,7 @@
   (display "Starting main loop.")
   (newline)
   (run-glut-loop (lambda ()
+                   (process-modules modules)
 		   (render! ctx can)
 		   (with-access
 		    (TransformationNode-transformation tnode)
@@ -85,5 +92,5 @@
 			   #t))
 		   (set! rot-angle (+ rot-angle rot-delta))
 		   (rotate! jaw-node rot-delta (vector 1. 0. 0.))
-		   (rotate! cam .01 (vector 0. 1. 0.))
+		   ;; (rotate! cam .01 (vector 0. 1. 0.))
 		   (thread-sleep! 0.005))))

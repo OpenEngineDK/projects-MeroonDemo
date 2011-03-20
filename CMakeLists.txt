@@ -9,6 +9,7 @@ ADD_LIBRARY(CPPStuff
 )
  
 GAMBIT_ADD_EXECUTABLE(MeroonDemo
+  modules.scm
   vector.scm
   quaternion.scm
   transformation.scm
