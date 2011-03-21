@@ -4,13 +4,13 @@
 
 (thread-start!
   (make-thread
-   (lambda () 
+   (lambda ()
      (letrec ([loop
                (lambda ()
-                 (with-exception-catcher 
-                  (lambda (e) 
+                 (with-exception-catcher
+                  (lambda (e)
                     (display "exception\n")
-                    (display e))                          
+                    (display e))
                   (lambda () (##repl-debug-main)))
                  (loop))])
        (loop)))))
@@ -32,7 +32,7 @@
     n))
 
 (define (queue-run q)
-  (letrec ([loop 
+  (letrec ([loop
             (lambda ()
               (if (queue-next? q)
                   (begin ((queue-pop q))
@@ -42,6 +42,7 @@
 (define (*mq* fn)
   (queue-push *main-queue* fn))
 
+(define *current-keymap* (keymap-make))
 
 
 (define dragon-head-path "resources/Dragon/DragonHead.obj")
@@ -56,15 +57,15 @@
     (load-scene dragon-jaw-path))
 
 (define jaw-node (instantiate TransformationNode
-                   :transformation (instantiate Transformation :pivot (vector 0. 0. -15.)) 
+                   :transformation (instantiate Transformation :pivot (vector 0. 0. -15.))
                    :children (list dragon-jaw)))
 
 (define dragon (instantiate TransformationNode :children (list dragon-head jaw-node)))
 
-(define arne 
+(define arne
   (instantiate TransformationNode :children (list (load-scene arne-path))))
 
-(define plane 
+(define plane
   (load-scene plane-path))
 
 (define mesh (instantiate MeshNode
@@ -92,28 +93,40 @@
 (move! cam 0.0 0.0 200.0)
 
 (define modules (make-modules (make-rotator dragon (* pi .5) (vector 0.0 1.0 0.0))
-			      
-			      ;; move light up and down
+                              ;; move light up and down
 			      (make-animator (TransformationNode-transformation light)
-					     (list 
-					      (cons 3. (instantiate Transformation 
+					     (list
+					      (cons 3. (instantiate Transformation
 							   :translation (vector 0. 100. -100.)))
-					      (cons 6. (instantiate Transformation 
+					      (cons 6. (instantiate Transformation
 							   :translation (vector 0. -100. -100.)))
-					      (cons 9. (instantiate Transformation 
+					      (cons 9. (instantiate Transformation
 							   :translation (vector 0. 100. -100.)))))
 
 			      ;; move the dragon jaw
 			      (make-animator (TransformationNode-transformation jaw-node)
-					     (list 
-					      (cons 2. (instantiate Transformation 
+					     (list
+					      (cons 2. (instantiate Transformation
 							   :rotation (mk-Quaternion (/ pi 4) (vector 1. 0. 0.))))
 					      (cons 4. (instantiate Transformation))
 
-					      (cons 6. (instantiate Transformation 
+					      (cons 6. (instantiate Transformation
 					      		   :rotation (mk-Quaternion (/ pi 4) (vector 1. 0. 0.))))
 					      ))))
-						
+
+
+(keymap-set-key *current-keymap* #\esc (lambda ()
+                                       (exit)))
+(keymap-set-key *current-keymap* 'left (lambda ()
+                                         (move! cam -3.0 .0 .0)))
+(keymap-set-key *current-keymap* 'right (lambda ()
+                                         (move! cam 3.0 .0 .0)))
+
+(keymap-set-key *current-keymap* 'up (lambda ()
+                                         (move! cam .0 .0 -3.0)))
+(keymap-set-key *current-keymap* 'down (lambda ()
+                                         (move! cam .0 .0 3.0)))
+
 (let* ([can   (instantiate Canvas3D
                 :width  1024
                 :height 768
@@ -124,6 +137,20 @@
        [last-time (time-in-seconds)])
   (display "Starting main loop.")
   (newline)
+  (set-glut-keyboard-function
+   (lambda (key x y)
+     (keymap-handle *current-keymap* key)))
+  (set-glut-special-function
+   (lambda (key x y)
+     (let ([key-sym
+            (cond
+              [(= key 100) 'left]
+              [(= key 101) 'up]
+              [(= key 102) 'right]
+              [(= key 103) 'down]
+              [else #f])])
+       (if key-sym
+           (keymap-handle *current-keymap* key-sym)))))
   (run-glut-loop (lambda ()
 		   (let* ([t (time-in-seconds)]
 			  [dt (- t last-time)])

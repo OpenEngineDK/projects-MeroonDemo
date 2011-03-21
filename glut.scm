@@ -12,6 +12,8 @@ c-declare-end
 
 (define *glut-initialized* #f)
 (define *glut-idle-function* #f)
+(define *glut-keyboard-function* #f)
+(define *glut-special-function* #f)
 
 (c-define (glut-display-function-callback)
     () void "glut_display_scm_callback" ""
@@ -22,6 +24,16 @@ c-declare-end
     () void "glut_idle_scm_callback" ""
   (and *glut-idle-function*
        (*glut-idle-function*)))
+
+(c-define (glut-keyboard-function-callack key x y)
+    (unsigned-char int int) void "glut_keyboard_scm_callback" ""
+  (and *glut-keyboard-function*
+       (*glut-keyboard-function* key x y)))
+
+(c-define (glut-special-function-callback key x y)
+    (int int int) void "glut_special_scm_callback" ""
+  (and *glut-special-function*
+       (*glut-special-function* key x y)))
 
 (define glut-make-window
   (c-lambda (int int) int
@@ -36,6 +48,8 @@ glutInitDisplayMode(GLUT_RGBA|GLUT_DOUBLE|GLUT_DEPTH);
 int win = glutCreateWindow("Meroon Demo");
 glutDisplayFunc(glut_display_scm_callback);
 glutIdleFunc(glut_idle_scm_callback);
+glutKeyboardFunc(glut_keyboard_scm_callback);
+glutSpecialFunc(glut_special_scm_callback);
 
 glewInit();
 
@@ -58,6 +72,13 @@ glut-make-window-end
 
 (define (set-glut-idle-function fn)
   (set! *glut-idle-function* fn))
+
+(define (set-glut-keyboard-function fn)
+  (set! *glut-keyboard-function* fn))
+
+(define (set-glut-special-function fn)
+  (set! *glut-special-function* fn))
+
 
 (define glut-swap-buffers
   (c-lambda () void

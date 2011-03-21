@@ -21,6 +21,7 @@ GAMBIT_ADD_EXECUTABLE(MeroonDemo
   glut.scm
   compat.scm
   assimp.scm
+  keymap.scm
   main.scm
 )
 
