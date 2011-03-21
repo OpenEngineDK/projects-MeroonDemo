@@ -4,15 +4,17 @@
 
 (thread-start!
   (make-thread
-    ;; (lambda () 
-    ;;   (with-exception-handler 
-    ;;     (lambda (e) 
-    ;;       (show "wtf..")
-    ;;       (show e)
-          
-    ;;       )
-        (lambda () (##repl-debug-main))))
-    ;; ))
+   (lambda () 
+     (letrec ([loop
+               (lambda ()
+                 (with-exception-catcher 
+                  (lambda (e) 
+                    (display "exception\n")
+                    (display e))                          
+                  (lambda () (##repl-debug-main)))
+                 (loop))])
+       (loop)))))
+
 
 ;; (compat-add-resource-path "resources/")
 
