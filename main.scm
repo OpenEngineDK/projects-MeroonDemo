@@ -36,7 +36,7 @@
 (define dragon (instantiate TransformationNode :children (list dragon-head jaw-node)))
 
 (define arne 
-  (load-scene arne-path))
+  (instantiate TransformationNode :children (list (load-scene arne-path))))
 
 (define plane 
   (load-scene plane-path))
@@ -55,7 +55,6 @@
                 :children (list shn)))
 
 (define light (instantiate TransformationNode :children (list (instantiate LightNode))))
-(move! light 0. 0. -100.)
 
 (define top (instantiate TransformationNode
                 :children (list dragon light) ;; tnode)
@@ -66,35 +65,49 @@
 (define cam (instantiate Camera))
 (move! cam 0.0 0.0 200.0)
 
-(define modules (make-modules (make-rotator dragon 0.01 (vector 0.0 1.0 0.0))))
+(define modules (make-modules (make-rotator dragon (* pi .5) (vector 0.0 1.0 0.0))
+			      
+			      ;; move light up and down
+			      (make-animator (TransformationNode-transformation light)
+					     (list 
+					      (cons 3. (instantiate Transformation 
+							   :translation (vector 0. 100. -100.)))
+					      (cons 6. (instantiate Transformation 
+							   :translation (vector 0. -100. -100.)))
+					      (cons 9. (instantiate Transformation 
+							   :translation (vector 0. 100. -100.)))))
 
-(define rot-angle 0.)
-(define rot-delta 0.01)
+			      ;; move the dragon jaw
+			      (make-animator (TransformationNode-transformation jaw-node)
+					     (list 
+					      (cons 2. (instantiate Transformation 
+							   :rotation (mk-Quaternion (/ pi 4) (vector 1. 0. 0.))))
+					      (cons 4. (instantiate Transformation))
 
+					      (cons 6. (instantiate Transformation 
+					      		   :rotation (mk-Quaternion (/ pi 4) (vector 1. 0. 0.))))
+					      ))))
+						
 (let* ([can   (instantiate Canvas3D
                 :width  1024
                 :height 768
                 :scene  top
                 :camera cam)]
        [win (make-window 1024 768)]
-       [ctx (get-context win)])
+       [ctx (get-context win)]
+       [last-time (time-in-seconds)])
   (display "Starting main loop.")
   (newline)
   (run-glut-loop (lambda ()
-                   (process-modules modules)
-		   (render! ctx can)
-		   (with-access
-		    (TransformationNode-transformation tnode)
-		    (Transformation translation)
-		    (if (> (vector-ref translation 0) 2.)
-			(set! translation (vector 0. 0. 0.))
-			(move! tnode .1 .1 .0)))
-		   (if (<= rot-angle 0.)
-		       (set! rot-delta .01)
-		       (if (>= rot-angle (* pi .2))
-			   (set! rot-delta -.01)
-			   #t))
-		   (set! rot-angle (+ rot-angle rot-delta))
-		   (rotate! jaw-node rot-delta (vector 1. 0. 0.))
-		   ;; (rotate! cam .01 (vector 0. 1. 0.))
-		   (thread-sleep! 0.005))))
+		   (let* ([t (time-in-seconds)]
+			  [dt (- t last-time)])
+		     (set! last-time t)
+		     (process-modules dt modules)
+		     (render! ctx can)
+		     ;; (with-access
+		     ;;  (TransformationNode-transformation tnode)
+		     ;;  (Transformation translation)
+		     ;;  (if (> (vector-ref translation 0) 2.)
+		     ;; 	  (set! translation (vector 0. 0. 0.))
+		     ;; 	  (move! tnode .1 .1 .0)))
+		     (thread-sleep! 0.005)))))

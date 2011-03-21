@@ -27,6 +27,8 @@ c-declare-end
 
 (define-method (initialize! (o Transformation))
   ;; free the c-matrix when object is reclaimed by the gc.
+  (update-transformation-pos! o)
+  (update-transformation-rot-and-scl! o)
   (make-will o (lambda (x) 
    		 ;; (display "delete array\n")
 		 (with-access x (Transformation c-matrix)
