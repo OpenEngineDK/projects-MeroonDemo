@@ -8,21 +8,10 @@
    [= light-count :initializer (lambda () 0)]))
 
 (define-generic (lookup-texture-id (ctx GLContext) (texture Texture))
-  (with-access ctx (GLContext textures)
-    (letrec ([lookup (lambda (key xs)
-		       (cond
-                        [(null? xs)
-                         #f]
-                        [(pair? xs)
-			 (let ([p (car xs)])
-			   (if (pair? p)
-			       (if (equal? key (car p))
-				   (cdr p)
-				   (lookup key (cdr xs)))
-			       (error "not a key value pair")))]
-			[else (error "not a list")]))])
-      (lookup texture textures))))
-
+  (cond
+    [(assoc texture (GLContext-textures ctx))
+     => (lambda (p) (cdr p))]
+    [else #f]))
 
 ;; Canvas rendering
 
