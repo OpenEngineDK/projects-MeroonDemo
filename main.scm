@@ -41,9 +41,9 @@
 
 (define top
   (instantiate TransformationNode
-    :children (list dragon light))
+    :children (list dragon light)
     :transformation (instantiate Transformation
-                      :translation (vector -1.0 -1.0 0.0)))
+                      :translation (vector -1.0 -1.0 0.0))))
 
 (define cam (instantiate Camera))
 (move! cam 0.0 0.0 200.0)
