@@ -5,7 +5,7 @@
 (define-class Projection Object
   ([= aspect   :immutable :initializer (lambda () (/ 4.0 3.0))]
    [= fov      :immutable :initializer (lambda () (/ pi 4.0))]
-   [= near     :immutable :initializer (lambda () 1.0)]
+   [= near     :immutable :initializer (lambda () 3.0)]
    [= far      :immutable :initializer (lambda () 3000.0)]
    [= c-matrix :immutable 
       :initializer (c-lambda () FloatArray
