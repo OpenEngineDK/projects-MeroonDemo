@@ -10,7 +10,8 @@
                  (with-exception-catcher
                   (lambda (e)
                     (display "exception\n")
-                    (display e))
+                    (display e)
+                    (newline))
                   (lambda () (##repl-debug-main)))
                  (loop))])
        (loop)))))
@@ -115,17 +116,32 @@
 					      ))))
 
 
-(keymap-set-key *current-keymap* #\esc (lambda ()
-                                       (exit)))
-(keymap-set-key *current-keymap* 'left (lambda ()
-                                         (move! cam -3.0 .0 .0)))
-(keymap-set-key *current-keymap* 'right (lambda ()
-                                         (move! cam 3.0 .0 .0)))
+(keymap-add-key! *current-keymap* #\esc (lambda (k s)
+                                          (exit)))
+(let ([move-up #f]
+      [move-down #f]
+      [move-left #f]
+      [move-right #f]
+      [move-scale 70.0]) 
+  (keymap-add-key! *current-keymap* (list 'up 'down 'left 'right)
+                   (lambda (k s)
+                     (cond 
+                       [(equal? k 'up) (set! move-up s)]
+                       [(equal? k 'down) (set! move-down s)]
+                       [(equal? k 'left) (set! move-left s)]
+                       [(equal? k 'right) (set! move-right s)])))  
+  (set! modules (add-module (lambda (dt)
+                              (if (or move-up move-down move-left move-right)
+                                  (move! cam 
+                                         (+   ; x
+                                          (if move-left (* -1 move-scale dt) 0.0)
+                                          (if move-right (* move-scale dt) 0.0))
+                                         0.0  ; y
+                                         (+   ; z
+                                          (if move-up (* -1 move-scale dt) 0.0)
+                                          (if move-down (* move-scale dt) 0.0))))) 
+                              modules)))
 
-(keymap-set-key *current-keymap* 'up (lambda ()
-                                         (move! cam .0 .0 -3.0)))
-(keymap-set-key *current-keymap* 'down (lambda ()
-                                         (move! cam .0 .0 3.0)))
 
 (let* ([can   (instantiate Canvas3D
                 :width  1024
@@ -138,10 +154,10 @@
   (display "Starting main loop.")
   (newline)
   (set-glut-keyboard-function
-   (lambda (key x y)
-     (keymap-handle *current-keymap* key)))
+   (lambda (key state x y)
+     (keymap-handle *current-keymap* key state)))
   (set-glut-special-function
-   (lambda (key x y)
+   (lambda (key state x y)
      (let ([key-sym
             (cond
               [(= key 100) 'left]
@@ -150,7 +166,8 @@
               [(= key 103) 'down]
               [else #f])])
        (if key-sym
-           (keymap-handle *current-keymap* key-sym)))))
+           (keymap-handle *current-keymap* key-sym state)))))
+
   (run-glut-loop (lambda ()
 		   (let* ([t (time-in-seconds)]
 			  [dt (- t last-time)])

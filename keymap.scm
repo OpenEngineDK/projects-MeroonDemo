@@ -4,16 +4,34 @@
   (box (list)))
 
 
-(define (keymap-set-key mapb key fn)
-  (set-box! mapb (cons (cons key fn) (unbox mapb))))
+(define (keymap-add-key! mapb key fn)
+  (letrec ( [helper (lambda (k fun)
+                     (let* ([kmap (unbox mapb)]
+                            [recv (assoc k kmap)])
+                       (if recv
+                           (map (lambda (old)
+                                  (if (equal? (car old) k)
+                                      (cons k (cons fun (cdr old)))
+                                      old)) kmap)
+                           (cons (cons k (list fun)) kmap))))])
+  (if (list? key)
+      (map (lambda (k)
+             (set-box! mapb (helper k fn)))
+           key)
+      (set-box! mapb (helper key fn)))))
 
-(define (keymap-handle mapb key)
+(define (keymap-run-recv receivers key state)
+  (do ([recvs receivers (cdr recvs)])
+       ((null? recvs))
+    ((car recvs) key state)))
+
+(define (keymap-handle mapb key state)
   (let* ([map (unbox mapb)]
-         [recv (assoc key map)])
+         [recv (assoc key map)]
+         [anyrecv (assoc 'any map)])
+    (if anyrecv
+        (keymap-run-recv (cdr anyrecv) key state))
     (if recv
-        ((cdr recv))
-        (begin
-          (display "Unbound key: ")
-          (display key)
-          (newline)))))
+        (keymap-run-recv (cdr recv) key state))))
+
 
