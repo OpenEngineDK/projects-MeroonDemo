@@ -150,7 +150,7 @@ UPDATE_TRANSFORMATION_ROT_AND_SCL_END
 
 (define-generic (Transformation-rotate (o Transformation) angle vec)
   (with-access o (Transformation rotation)
-    (set! rotation (quaternion* rotation (mk-Quaternion angle vec)))
+    (set! rotation (quaternion* rotation (make-quaternion angle vec)))
     (update-c-matrix! rotation)))
 
 (define-method (show (o Transformation) . stream)

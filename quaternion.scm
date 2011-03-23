@@ -3,7 +3,7 @@
 c-declare-end
 )
 (c-define-type FloatArray (pointer "float"))
-
+    
 (define-class Quaternion Object
   ([= w  :initializer (lambda () 1.0)]
    [= x  :initializer (lambda () 0.0)]
@@ -39,6 +39,28 @@ c-declare-end
       ;; 		     ___result_voidstar = m;"
       ;; 		     )]))
 
+;; Quaternion constructors:
+;;   (make-quaternion real)
+;;   (make-quaternion real image1 image2 image3)
+;;   (make-quaternion x-angle y-angle z-angle)    euler angles
+;;   (make-quaternion angle axis)                 angle + axis vector
+(define (make-quaternion #!rest args)
+  (let ([len (length args)])
+    (cond
+      [(fx= len 1)
+       (instantiate Quaternion :w (car args))]
+      [(fx= len 2)
+       (apply make-quaternion-from-angle-axis args)]
+      [(fx= len 3)
+       (apply make-quaternion-from-euler-angles args)]
+      [(fx= len 4)
+       (instantiate Quaternion
+         :w (list-ref args 0)
+         :x (list-ref args 1)
+         :y (list-ref args 2)
+         :z (list-ref args 3))]
+      [else
+       (error "invalid arguments to make-quaternion")])))
 
 (define-generic (normalize! (o))
   (error (string-append "Object of type "
@@ -103,7 +125,7 @@ UPDATE_C_MATRIX_END
       (error "Attempt to calculate conjugate of non-quaternion")))
 
 
-(define (mk-Quaternion angle vec)
+(define (make-quaternion-from-angle-axis angle vec)
     (let* ([half-angle (* angle 0.5)]
            [q (instantiate Quaternion 
                 :w (cos half-angle)
@@ -112,6 +134,21 @@ UPDATE_C_MATRIX_END
                 :z (* (sin half-angle) (vector-ref vec 2)))])
       (normalize! q)
       q))
+
+(define (make-quaternion-from-euler-angles x y z)
+  (let ([cr (cos (/ x 2))]
+        [cp (cos (/ y 2))]
+        [cy (cos (/ z 2))]
+        [sr (sin (/ x 2))]
+        [sp (sin (/ y 2))]
+        [sy (sin (/ z 2))])
+    (let ([cpcy (* cp cy)]
+          [spsy (* sp sy)])
+      (instantiate Quaternion
+        :w (+ (* cr cpcy) (* sr spsy))
+        :x (- (* sr cpcy) (* cr spsy))
+        :y (+ (* cr sp cy) (* sr cp sy))
+        :z (- (* cr cp sy) (* sr sp cy))))))
 
 (define (quaternion* q1 q2)
   (instantiate Quaternion 

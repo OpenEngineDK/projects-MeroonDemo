@@ -65,11 +65,13 @@
    (make-animator
     (TransformationNode-transformation jaw-node)
     (list (cons 2. (instantiate Transformation
-                     :rotation (mk-Quaternion (/ pi 4) (vector 1. 0. 0.))))
+                     :rotation (make-quaternion (/ pi 4)
+                                                (vector 1. 0. 0.))))
           (cons 4. (instantiate Transformation))
           
           (cons 6. (instantiate Transformation
-                     :rotation (mk-Quaternion (/ pi 4) (vector 1. 0. 0.))))))))
+                     :rotation (make-quaternion (/ pi 4)
+                                                (vector 1. 0. 0.))))))))
 
 
 (keymap-add-key! *current-keymap* #\esc (lambda (k s)
