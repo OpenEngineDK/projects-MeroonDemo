@@ -5,7 +5,13 @@
 #include <Resources/DataBlock.h>
 #include <cstdio>
 
+#include <set>
+#include <string>
+
 using namespace OpenEngine::Resources;
+using namespace std;
+
+set<string> bones;
 
 void add_db_scm(IDataBlock* db);
 void add_false_db_scm();
@@ -13,14 +19,14 @@ void add_mesh_scm(int i);
 void set_pos_scm(float x, float y, float z);
 void set_rot_scm(float w, float x, float y, float z);
 void set_scale_scm(float x, float y, float z);
-void append_transformation_node_scm();
+void push_transformation_node_scm();
+void pop_scene_parent_scm();
 void append_mesh_node_scm(int i);
 
 void append_material_scm(char* path);
 void append_empty_material_scm();
 
 void readMaterials(aiMaterial** ms, unsigned int size) {
-    // printf("c read materials\n");
     unsigned int i;
     for (i = 0; i < size; ++i) {
         aiMaterial* m = ms[size-i-1];
@@ -34,10 +40,10 @@ void readMaterials(aiMaterial** ms, unsigned int size) {
 
 
 void readMeshes(aiMesh** ms, unsigned int size) {
-    // printf("c read meshes\n");
+    bones.clear();
     unsigned int i, j;
     for (i = 0; i < size; ++i) {
-        aiMesh* m = ms[size-i-1]; // iterate in reverse order since we append to a scheme list
+        aiMesh* m = ms[size-i-1]; // iterate in reverse order since we prepend to a scheme list
 
         // read vertices
         unsigned int num = m->mNumVertices;
@@ -64,22 +70,16 @@ void readMeshes(aiMesh** ms, unsigned int size) {
         }
 
         IDataBlock* uvs = NULL;
-        //logger.info << "numUV: " << m->GetNumUVChannels() << logger.end;
         if (m->GetNumUVChannels() > 0) {
             unsigned int j = 0;
             // read texture coordinates
             unsigned int dim = m->mNumUVComponents[j];
-            //logger.info << "numUVComponents: " << dim << logger.end;
             src = m->mTextureCoords[j];
             dest = new float[dim * num];
             for (unsigned int k = 0; k < num; ++k) {
                 for (unsigned int l = 0; l < dim; ++l) {
-                    // dest[k*dim]   = src[k].x;
-                    // dest[k*dim+1] = src[k].y;
-                    // dest[k*dim+2] = src[k].z;
                      dest[k*dim+l] = src[k][l];
                 }
-                    //logger.info << "texc: (" << src[k].x << ", " << src[k].y << ")" << logger.end; 
             }
             switch (dim) {
             case 2:
@@ -120,29 +120,32 @@ void readMeshes(aiMesh** ms, unsigned int size) {
         add_db_scm(verts);
         add_db_scm(indices);
         add_mesh_scm(m->mMaterialIndex);
+
+        for (unsigned int k = 0; k < m->mNumBones; ++k) {
+            aiBone* bone = m->mBones[k];
+            bones.insert(bone->mName.data);
+        } 
     }
 }
 
 void readNode(aiNode* node) {
+    // printf("readnode name: %s\n", node->mName.data);
 
-//     unsigned int i;
-//     ISceneNode* current = parent;
+    // if node describes a bone then don't process it.
+    if (bones.find(node->mName.data) != bones.end()) return;
+
+    // construct a transformation node
     aiMatrix4x4 t = node->mTransformation;
-
-    // If the node holds any mesh we create a parent transformation node for the mesh.
     aiVector3D pos, scl;
     aiQuaternion rot;
-    // NOTE: decompose seems buggy when it comes to rotations
     t.Decompose(scl, rot, pos);
-    // Use rotation matrix to construct rotation quaternion instead.
-    // aiMatrix3x3 m3 = rot.GetMatrix();
-
     
     set_pos_scm(pos.x, pos.y, pos.z);
     set_rot_scm(rot.w, rot.x, rot.y, rot.z);
     set_scale_scm(scl.x, scl.y, scl.z);
-    append_transformation_node_scm();
-            
+    push_transformation_node_scm();
+
+    // append meshes to the transformation node
     if ( node->mNumMeshes > 0 ) {
         // Create scene node and add all mesh nodes to it.
         for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
@@ -154,6 +157,7 @@ void readNode(aiNode* node) {
     for (unsigned int i = 0; i < node->mNumChildren; ++i) {
         readNode(node->mChildren[i]);
     }
+    pop_scene_parent_scm();
 }
 
 void readScene(const aiScene* scene) {

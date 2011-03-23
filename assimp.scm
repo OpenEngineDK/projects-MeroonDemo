@@ -22,7 +22,7 @@ c-declare-end
 (define *loaded-meshes* '())
 (define *loaded-materials* '())
 (define *scene-root* #f)
-(define *scene-parent* #f)
+(define *scene-parent-stack* #f)
 
 (define *transformation-pos* (make-vector 3 0.0))
 (define *transformation-rot* (instantiate Quaternion))
@@ -66,20 +66,25 @@ c-declare-end
     (float float float) void "set_scale_scm" ""
     (set! *transformation-scale* (list->vector `(,x ,y ,z))))
 
-(c-define (append-transformation-node)
-    () void "append_transformation_node_scm" ""
+;; append tnode to scene parent and push tnode on scene parent stack. 
+(c-define (push-transformation-node)
+    () void "push_transformation_node_scm" ""
     (let ((node (instantiate TransformationNode 
 			     :transformation (instantiate Transformation 
 							  :translation *transformation-pos*
                                                           :rotation *transformation-rot*
 							  :scaling *transformation-scale*))))
-      (with-access *scene-parent* (SceneParent children)
+      (with-access (car *scene-parent-stack*) (SceneParent children)
 		   (set! children (cons node children)))
-      (set! *scene-parent* node)))
+      (set! *scene-parent-stack* (cons node *scene-parent-stack*))))
+
+(c-define (pop-scene-parent)
+    () void "pop_scene_parent_scm" ""
+  (set! *scene-parent-stack* (cdr *scene-parent-stack*)))
 
 (c-define (append-mesh-node i)
     (int) void "append_mesh_node_scm" ""
-    (with-access *scene-parent* (SceneParent children)
+    (with-access (car *scene-parent-stack*) (SceneParent children)
 		 (set! children 
 		       (cons 
 			 (instantiate MeshNode 
@@ -130,7 +135,7 @@ c-load-scene-end
 
 (define (load-scene path)
   (set! *scene-root* (instantiate SceneParent))
-  (set! *scene-parent* *scene-root*)
+  (set! *scene-parent-stack* (list *scene-root*))
   (set! *current-file-dir* (->file-dir path))
   (set! *loaded-blocks* '())
   (set! *loaded-meshes* '())
@@ -139,7 +144,7 @@ c-load-scene-end
       (let ([root *scene-root*])
 	;; cleanup globals
 	(set! *scene-root* #f)
-	(set! *scene-parent* #f)
+	(set! *scene-parent-stack* #f)
 	(set! *current-file-dir* #f)
 	(set! *loaded-blocks* '())
 	(set! *loaded-meshes* '())

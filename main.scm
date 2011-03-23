@@ -18,6 +18,7 @@
 (define dragon-jaw-model  (load-scene "resources/Dragon/DragonJaw.obj"))
 (define arne-model        (load-scene "resources/arme_arne/ArmeArne02.DAE"))
 (define plane-model       (load-scene "resources/plane/seymourplane_triangulate.dae"))
+(define astroboy-model    (load-scene "resources/astroboy/astroboy_walk.dae"))
 
 ;; Create some scene nodes
 
