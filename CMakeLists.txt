@@ -4,39 +4,37 @@ FIND_PACKAGE(GLUT REQUIRED)
 
 INCLUDE_DIRECTORIES(${GLUT_INCLUDE_DIR})
 
-ADD_LIBRARY(CPPStuff
-  assimp.cpp
-)
- 
-GAMBIT_ADD_EXECUTABLE(MeroonDemo
+ADD_LIBRARY(CPPStuff assimp.cpp)
+
+## extensions to base scheme/gambit
+GAMBIT_ADD_LIBRARY(Scheme_Ext GAMBIT_MEROON
   vector.scm
+)
+
+## project
+GAMBIT_ADD_EXECUTABLE(MeroonDemo Scheme_Ext
   quaternion.scm
   queue.scm
   transformation.scm
   projection.scm
-  modules.scm
-  texture.scm
   datablock.scm
+  texture.scm
+  modules.scm
   objects.scm
   render.scm
+  keymap.scm
+  assimp.scm
   opengl.scm
   glut.scm
-  compat.scm
-  assimp.scm
-  keymap.scm
   main.scm
 )
-
-# Project dependencies
 TARGET_LINK_LIBRARIES(MeroonDemo
-  CPPStuff
-  # Core library dependencies
   OpenEngine_Core
-  # Extensions
-  Extensions_OpenGLRenderer
-  Extensions_AssimpResource ## just a hack to get the assimp source which is included in the extension
   Extensions_OBJResource
   Extensions_TGAResource
   Extensions_SDLImage
+  Extensions_AssimpResource
+  Extensions_OpenGLRenderer
   ${GLUT_LIBRARIES}
+  CPPStuff
 )
