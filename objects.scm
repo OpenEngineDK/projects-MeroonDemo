@@ -88,7 +88,7 @@
   (move! (TransformationNode-transformation node) x y z))
 
 (define-method (move! (cam Camera) x y z)
-  (move! (Camera-view cam) x y z))
+  (move! (Camera-view cam) (- x) (- y) (- z)))
 
 (define-generic (scale! (o) x y z)
   (error (string-append "Object of type "

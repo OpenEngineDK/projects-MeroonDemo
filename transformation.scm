@@ -4,8 +4,6 @@
 c-declare-end
 )
 
-(c-define-type FloatArray (pointer "float"))
-
 (define-class Transformation Object
   ([= translation 
       :initializer (lambda () (make-vector 3 0.0))]
@@ -15,7 +13,7 @@ c-declare-end
       :initializer (lambda () (instantiate Quaternion))]
    [= pivot :initializer (lambda () #f)]
    [= c-matrix :immutable 
-      :initializer (c-lambda () FloatArray
+      :initializer (c-lambda () (pointer float)
 		     "float* m = new float[16];
                      memset(m, 0x0, sizeof(float) * 16); 
                      m[0]  = 1.0f;
@@ -27,18 +25,17 @@ c-declare-end
 
 (define-method (initialize! (o Transformation))
   ;; free the c-matrix when object is reclaimed by the gc.
-  (update-transformation-pos! o)
   (update-transformation-rot-and-scl! o)
+  (update-transformation-pos! o)
   (make-will o (lambda (x) 
-   		 ;; (display "delete array\n")
 		 (with-access x (Transformation c-matrix)
-	           ((c-lambda (FloatArray) void
+	           ((c-lambda ((pointer float)) void
 		      "delete[] ___arg1;")
-		   c-matrix))))
+                    c-matrix))))
   (call-next-method))
 
 (define c-update-transformation-pivot!
-  (c-lambda (scheme-object scheme-object scheme-object FloatArray FloatArray) void
+  (c-lambda (scheme-object scheme-object scheme-object (pointer float) (pointer float)) void
 #<<UPDATE_TRANSFORMATION_PIVOT_END
 // printf("pivot\n");
 
@@ -97,7 +94,7 @@ UPDATE_TRANSFORMATION_PIVOT_END
 ))
 
 (define c-update-transformation-pos!
-  (c-lambda (scheme-object scheme-object FloatArray) void
+  (c-lambda (scheme-object scheme-object (pointer float)) void
 #<<UPDATE_TRANSFORMATION_POS_END
 
 const ___SCMOBJ scm_x  = ___VECTORREF(___arg1, 0);
@@ -131,14 +128,14 @@ ___END_CFUN_SCMOBJ_TO_FLOAT(scm_x, x, 6);
 
 
 // fourth column
-m[12] = -x * sx;
-m[13] = -y * sy;
-m[14] = -z * sz;
+m[12] = x * sx;
+m[13] = y * sy;
+m[14] = z * sz;
 UPDATE_TRANSFORMATION_POS_END
 ))
 
 (define c-update-transformation-rot-and-scl!
-  (c-lambda (float float float FloatArray FloatArray) void
+  (c-lambda (float float float (pointer float) (pointer float)) void
 #<<UPDATE_TRANSFORMATION_ROT_AND_SCL_END
 const float x      = ___arg1;
 const float y      = ___arg2;
@@ -181,6 +178,8 @@ UPDATE_TRANSFORMATION_ROT_AND_SCL_END
 
 (define (update-transformation-rot-and-scl! o)
   (with-access o (Transformation translation scaling rotation pivot c-matrix)
+    (normalize! rotation)
+    (update-c-matrix! rotation)
     (c-update-transformation-rot-and-scl!
      (vector-ref scaling 0)
      (vector-ref scaling 1)
