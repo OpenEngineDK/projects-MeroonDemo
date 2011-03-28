@@ -3,7 +3,7 @@
 
 dist /dependencies/GambitDep/GambitDep.dist http://openengine.dk/code/dependencies/GambitDep/GambitDep.dist
 dist /extensions/Assimp/Assimp.dist http://openengine.dk/code/extensions/Assimp/Assimp.dist
-dist /extensions/SDLImage/SDLImage.dist http://openengine.dk/code/extensions/SDLImage/SDLImage.dist
+#dist /extensions/SDLImage/SDLImage.dist http://openengine.dk/code/extensions/SDLImage/SDLImage.dist
 
 # main repository
 darcs / http://openengine.dk/code/openengine
@@ -17,8 +17,9 @@ darcs-dev /projects/MeroonDemo fh.daimi.au.dk:/users/cgd/code/projects/MeroonDem
 # required extensions
 darcs 	   /extensions/OpenGLRenderer		http://openengine.dk/code/extensions/OpenGLRenderer
 darcs-dev  /extensions/OpenGLRenderer		fh.cs.au.dk:/users/cgd/code/extensions/OpenGLRenderer
-darcs /extensions/OBJResource            	http://openengine.dk/code/extensions/OBJResource
-darcs /extensions/TGAResource            	http://openengine.dk/code/extensions/TGAResource
+#darcs /extensions/OBJResource            	http://openengine.dk/code/extensions/OBJResource
+#darcs /extensions/TGAResource            	http://openengine.dk/code/extensions/TGAResource
+darcs /extensions/FreeImage              	http://openengine.dk/code/extensions/FreeImage
 
 any /resources      http://www.openengine.dk/data/projects/DragonPanic/Dragon.zip
 

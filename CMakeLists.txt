@@ -33,9 +33,9 @@ TARGET_LINK_LIBRARIES(MeroonDemo
   OpenEngine_Core
   Extensions_OBJResource
   Extensions_TGAResource
-  Extensions_SDLImage
+  #Extensions_SDLImage
+  Extensions_FreeImage
   Extensions_AssimpResource
-  Extensions_OpenGLRenderer
   ${GLUT_LIBRARIES}
   CPPStuff
 )
