@@ -26,6 +26,7 @@ GAMBIT_ADD_EXECUTABLE(MeroonDemo Scheme_Ext
   assimp.scm
   opengl.scm
   glut.scm
+  dotvisitor.scm
   main.scm
 )
 TARGET_LINK_LIBRARIES(MeroonDemo
