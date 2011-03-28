@@ -23,6 +23,7 @@ GAMBIT_ADD_EXECUTABLE(MeroonDemo Scheme_Ext
   objects.scm
   render.scm
   keymap.scm
+  animation.scm
   assimp.scm
   opengl.scm
   glut.scm

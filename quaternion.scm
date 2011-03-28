@@ -2,7 +2,6 @@
 #include <cstring>
 c-declare-end
 )
-(c-define-type FloatArray (pointer "float"))
     
 (define-class Quaternion Object
   ([= w  :initializer (lambda () 1.0)]
@@ -10,7 +9,7 @@ c-declare-end
    [= y  :initializer (lambda () 0.0)]
    [= z  :initializer (lambda () 0.0)]
    [= c-matrix :immutable 
-      :initializer (c-lambda () FloatArray
+      :initializer (c-lambda () (pointer float)
 		     "float* m = new float[9];
                       memset(m, 0x0, sizeof(float) * 9); 
                       m[0]  = 1.0f;
@@ -23,21 +22,10 @@ c-declare-end
   (make-will o (lambda (x) 
    		 ;; (display "delete array\n")
 		 (with-access x (Quaternion c-matrix)
-	           ((c-lambda (FloatArray) void
+	           ((c-lambda ((pointer float)) void
 		      "delete[] ___arg1;")
-		   c-matrix))))
+                    c-matrix))))
   (call-next-method))
-
-     ;; :initializer (lambda ()
-
-       ;; 		    c-lambda () FloatArray
-      ;; 		     "float* m = new float[9];
-      ;;                memset(m, 0x0, sizeof(float) * 9); 
-      ;;                m[0]  = 1.0f;
-      ;;                m[4]  = 1.0f;
-      ;;                m[8] = 1.0f;
-      ;; 		     ___result_voidstar = m;"
-      ;; 		     )]))
 
 ;; Quaternion constructors:
 ;;   (make-quaternion real)
@@ -84,7 +72,7 @@ c-declare-end
         (error "Can not normalize quaternion with zero norm"))))
 
 (define (update-c-matrix! q)
-  ((c-lambda (float float float float FloatArray) void
+  ((c-lambda (float float float float (pointer float)) void
 #<<UPDATE_C_MATRIX_END
 float w  = ___arg1;
 float x  = ___arg2;
@@ -116,14 +104,22 @@ UPDATE_C_MATRIX_END
    (Quaternion-c-matrix q)))
 
 (define (make-conjugate q) 
-  (if (Quaternion? q)
       (instantiate Quaternion 
         :w (Quaternion-w q) 
         :x (- (Quaternion-x q))
         :y (- (Quaternion-y q))
-        :z (- (Quaternion-z q)))
-      (error "Attempt to calculate conjugate of non-quaternion")))
+        :z (- (Quaternion-z q))))
 
+(define (rotate-vector vec q)
+  (let ([q1 (quaternion* 
+             (quaternion* 
+              q
+              (instantiate Quaternion
+                  :x (vector-ref vec 0)
+                  :y (vector-ref vec 1)
+                  :z (vector-ref vec 2)))
+              (make-conjugate q))])
+    (vector (Quaternion-x q1) (Quaternion-y q1) (Quaternion-z q1))))
 
 (define (make-quaternion-from-angle-axis angle vec)
     (let* ([half-angle (* angle 0.5)]

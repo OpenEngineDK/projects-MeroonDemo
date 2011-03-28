@@ -8,20 +8,21 @@
         (lambda () (##repl-debug-main)))
        (loop)))))
 
+;; process REPL lambda in the main thread
 (define *main-queue* (box '()))
 (define (*mq* fn) (queue-push *main-queue* fn))
 (define *current-keymap* (keymap-make))
 
 ;; Load some models
-
 (define dragon-head-model (load-scene "resources/Dragon/DragonHead.obj"))
 (define dragon-jaw-model  (load-scene "resources/Dragon/DragonJaw.obj"))
 (define arne-model        (load-scene "resources/arme_arne/ArmeArne02.DAE"))
 (define plane-model       (load-scene "resources/plane/seymourplane_triangulate.dae"))
 (define astroboy-model    (load-scene "resources/astroboy/astroboy_walk.dae"))
+(define sharky-model      (load-scene "resources/sharky/Sharky09.DAE"))
+(define finn-model        (load-scene "resources/finn/Finn08.DAE"))
 
 ;; Create some scene nodes
-
 (define jaw-node
   (instantiate TransformationNode
     :transformation (instantiate Transformation
@@ -42,27 +43,31 @@
 
 (define top
   (instantiate TransformationNode
-    :children (list dragon light)
-    :transformation (instantiate Transformation
-                      :translation (vector -1.0 -1.0 0.0))))
+      :children (list dragon light)
+      :transformation (instantiate Transformation
+                          :translation (vector -1.0 -1.0 0.0))))
 
 (define cam (instantiate Camera))
-(move! cam 0.0 0.0 200.0)
+(move! cam 0.0 0.0 400.0)
+
+;; animation module system (mainly for bone animation)
+(define animator (instantiate Animator))
 
 (define modules
   (make-modules
+   (make-animator-module animator top) ;; give the animation subsystem processing time
    (make-rotator dragon (* pi .5) (vector 0.0 1.0 0.0))
    ;; move light up and down
-   (make-animator
+   (make-animator ;; deprecated stuff (see animation.scm)
     (TransformationNode-transformation light)
     (list (cons 3. (instantiate Transformation
-                     :translation (vector 0. 100. -100.)))
+                     :translation (vector 0. 100. 100.)))
           (cons 6. (instantiate Transformation
-                     :translation (vector 0. -100. -100.)))
+                     :translation (vector 0. -100. 100.)))
           (cons 9. (instantiate Transformation
-                     :translation (vector 0. 100. -100.)))))
+                     :translation (vector 0. 100. 100.)))))
    ;; move the dragon jaw
-   (make-animator
+   (make-animator ;; deprecated stuff (see animation.scm)
     (TransformationNode-transformation jaw-node)
     (list (cons 2. (instantiate Transformation
                      :rotation (make-quaternion (/ pi 4)
@@ -74,6 +79,7 @@
                                                 (vector 1. 0. 0.))))))))
 
 
+;; key input handling
 (keymap-add-key! *current-keymap* #\esc (lambda (k s)
                                           (exit)))
 (let ([move-up #f]
@@ -100,6 +106,13 @@
                                           (if move-down (* move-scale dt) 0.0))))) 
                               modules)))
 
+
+;; setup some fishy animation demo
+(if finn-model
+    (begin
+      (scene-add-node! top finn-model)
+      (move! dragon 0. 10. 0.)
+      (play (car *animations*) animator)))
 
 (let* ([can   (instantiate Canvas3D
                 :width  1024
@@ -133,4 +146,6 @@
 		     (process-modules dt modules)
                      (queue-run *main-queue*)
                      (render! ctx can)
-		     (thread-sleep! 0.005)))))
+                     ;; (##gc)
+		     (thread-sleep! 0.005)
+                     ))))

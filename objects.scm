@@ -16,17 +16,19 @@
   ([= scene  :immutable]
    [= camera :immutable]))
 
-(define-class Scene Object ())
+(define-class Scene Object 
+  ([= name :initializer (lambda () #f)]
+   [= info :initializer (lambda () #f)]))
 
 (define-class SceneParent Scene
   ([= children :mutable
       :initializer list]))
 
 (define-class TransformationNode SceneParent
-  ([= transformation :immutable
+  ([= transformation
       :initializer (lambda () (instantiate Transformation))]))
 
-(define-class MeshNode Scene
+(define-class Mesh Object
   ([= geotype  :immutable :initializer (lambda () 'triangles)]
    [= indices  :immutable]
    [= vertices :immutable]
@@ -34,6 +36,9 @@
    [= uvs      :immutable :initializer (lambda () #f)]
    ;; [= datablocks :immutable]
    [= texture :immutable :initializer (lambda () #f)]))
+
+(define-class MeshNode Scene
+  ([= mesh ]))
 
 (define-class ShaderNode SceneParent ;; Effect
   ([* tags :immutable]))

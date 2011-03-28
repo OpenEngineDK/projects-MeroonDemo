@@ -1,5 +1,3 @@
-(c-define-type FloatArray (pointer "float"))
-
 ;; Context definition
 
 (define-class GLContext Context 
@@ -18,13 +16,13 @@
 (define-method (render! (ctx GLContext) (can Canvas3D))
   (gl-clear) ;; might not want to clear here...
   (gl-viewport (Canvas-width can) (Canvas-height can))
-  ;; (show (Camera-view (Canvas3D-camera can)))
   (gl-viewing-volume (Projection-c-matrix (Camera-proj (Canvas3D-camera can)))
 		     (Transformation-c-matrix (Camera-view (Canvas3D-camera can))))
   (with-access ctx (GLContext light-count)
     (set! light-count 0))
   (gl-setup-lights ctx (Canvas3D-scene can))
-  (gl-render-scene ctx (Canvas3D-scene can)))
+  (gl-render-scene ctx (Canvas3D-scene can))
+)
 
 ;; Scene rendering
 
@@ -44,25 +42,76 @@
   (call-next-method) ;; i.e., on SceneParent
   (gl-pop-transformation))
 
-(define-method (gl-render-scene ctx (node MeshNode))
-  (with-access node (MeshNode indices vertices normals uvs texture)
+;; render bones
+(define-method (gl-render-scene ctx (node BoneNode))
+ #f)
+  ;; (gl-push-transformation (BoneNode-transformation node))
+  ;; (call-next-method) ;; i.e., on SceneParent
+  ;; (gl-pop-transformation))
+
+
+(define-generic (gl-render-mesh ctx (mesh Object))
+  (error "Unsupported mesh type"))
+
+(define (foldl f n l)
+  (letrec ([visit (lambda (l r)
+                    (cond
+                      [(null? l)
+                       r]
+                      [(pair? l)
+                       (visit (cdr l) (f r (car l)))]
+                      [(error "invalid list")]))])
+    (visit l n)))
+
+
+(define-method (gl-render-mesh ctx (mesh AnimatedMesh))
+  (with-access mesh (AnimatedMesh 
+                     indices
+                     vertices
+                     normals
+                     bind-pose-vertices 
+                     bind-pose-normals
+                     bones)
+    (if (foldl (lambda (b r) 
+                 (or b r)) 
+               #f 
+               (map (lambda (b) 
+                      (BoneNode-dirty b)) 
+                    bones)) ;; if dirty ... prettier code needed!
+        (begin
+          (init-skin-mesh vertices normals)
+          (map (lambda (b) 
+                 (with-access b (BoneNode acc-transformation dirty)
+                   (set! dirty #f)
+                   (skin-mesh bind-pose-vertices
+                              bind-pose-normals
+                              vertices
+                              normals
+                              (Transformation-c-matrix acc-transformation)
+                              (Quaternion-c-matrix ;; use matrix from quaternion to rotate normals
+                               (Transformation-rotation 
+                                acc-transformation))
+                              (BoneNode-c-weights b))))
+               bones)))
+        (call-next-method)))
+
+(define-method (gl-render-mesh ctx (mesh Mesh))
+  (with-access mesh (Mesh indices vertices normals uvs texture)
     (with-access ctx (GLContext textures)
-      (if (equal? texture #f)
+      (if (eq? texture #f)
 	  (gl-apply-mesh indices vertices normals uvs 0)
 	  (let ([tid (lookup-texture-id ctx texture)])
-	    (if (equal? tid #f)
+	    (if (eq? tid #f)
 		(begin
-		  ;; (display "bind texture: ")
 		  (let ([tid (gl-bind-texture texture)])
 		    (set! textures (cons (cons texture tid) textures))
-		    ;; (display tid)
-		    ;; (display "\n")
 		    (gl-apply-mesh indices vertices normals uvs tid)))
 		(begin
-		  ;; (display "found texture: ")
-		    ;; (display tid)
-		    ;; (display "\n")
 		  (gl-apply-mesh indices vertices normals uvs tid))))))))
+  
+
+(define-method (gl-render-scene ctx (node MeshNode))
+  (gl-render-mesh ctx (MeshNode-mesh node)))
 
 (define-method (gl-render-scene ctx (node ShaderNode))
   (let ([shader-tag (ShaderNode-tags node 0)])
@@ -104,24 +153,78 @@
 (define-method (gl-setup-lights ctx (node LightNode))
   (gl-setup-light ctx (LightNode-light node)))
 
-(define-method (gl-setup-light ctx (node PointLight))
+(define-method (gl-setup-light ctx (light PointLight))
   (with-access ctx (GLContext light-count)
-    ((c-lambda (int) void 
+    (with-access light (PointLight ambient diffuse specular)
+      ((c-lambda (int scheme-object scheme-object scheme-object) void 
 #<<c-gl-setup-light-end
-    GLint light = GL_LIGHT0 + ___arg1;
-    const float pos[] = {0.0, 0.0, 0.0, 1.0};
-    glLightfv(light, GL_POSITION, pos);
-    // glLightfv(light, GL_AMBIENT, color);
-    // glLightfv(light, GL_DIFFUSE, color);
-    // glLightfv(light, GL_SPECULAR, color);
+
+const ___SCMOBJ scm_ar  = ___VECTORREF(___arg2, 0);
+const ___SCMOBJ scm_ag  = ___VECTORREF(___arg2, 4);
+const ___SCMOBJ scm_ab  = ___VECTORREF(___arg2, 8);
+const ___SCMOBJ scm_aa  = ___VECTORREF(___arg2, 12);
+
+const ___SCMOBJ scm_dr = ___VECTORREF(___arg3, 0);
+const ___SCMOBJ scm_dg = ___VECTORREF(___arg3, 4);
+const ___SCMOBJ scm_db = ___VECTORREF(___arg3, 8);
+const ___SCMOBJ scm_da = ___VECTORREF(___arg3, 12);
+
+const ___SCMOBJ scm_sr = ___VECTORREF(___arg4, 0);
+const ___SCMOBJ scm_sg = ___VECTORREF(___arg4, 4);
+const ___SCMOBJ scm_sb = ___VECTORREF(___arg4, 8);
+const ___SCMOBJ scm_sa = ___VECTORREF(___arg4, 12);
+
+float ambient[4];
+float diffuse[4];
+float specular[4];
+
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_ar, ambient[0], 12);
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_ag, ambient[1], 12);
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_ab, ambient[2], 12);
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_aa, ambient[3], 12);
+
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_dr, diffuse[0], 12);
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_dg, diffuse[1], 12);
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_db, diffuse[2], 12);
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_da, diffuse[3], 12);
+
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_sr, specular[0], 12);
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_sg, specular[1], 12);
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_sb, specular[2], 12);
+___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_sa, specular[3], 12);
+
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_sa, specular[3], 12);
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_sb, specular[2], 12);
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_sg, specular[1], 12);
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_sr, specular[0], 12);
+
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_da, diffuse[3], 12);
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_db, diffuse[2], 12);
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_dg, diffuse[1], 12);
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_dr, diffuse[0], 12);
+
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_aa, ambient[3], 12);
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_ab, ambient[2], 12);
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_ag, ambient[1], 12);
+___END_CFUN_SCMOBJ_TO_FLOAT(scm_ar, ambient[0], 12);
+
+GLint light = GL_LIGHT0 + ___arg1;
+const float pos[] = {0.0, 0.0, 0.0, 1.0};
+glLightfv(light, GL_POSITION, pos);
+glLightfv(light, GL_AMBIENT, ambient);
+glLightfv(light, GL_DIFFUSE, diffuse);
+glLightfv(light, GL_SPECULAR, specular);
+
     // glLightf(light, GL_CONSTANT_ATTENUATION, node->constAtt);
     // glLightf(light, GL_LINEAR_ATTENUATION, node->linearAtt);
     // glLightf(light, GL_QUADRATIC_ATTENUATION, node->quadAtt);
     glEnable(light);
 c-gl-setup-light-end
-) light-count)
-    (set! light-count (+ 1 light-count))))
+) light-count ambient diffuse specular)
+    (set! light-count (+ 1 light-count)))))
 
+(define stack-height 
+  (c-lambda () int "glGetIntegerv(GL_MAX_MODELVIEW_STACK_DEPTH, &___result);"))
 
 ;;; shaders
 
@@ -148,13 +251,20 @@ BLUE-FRAG-END
 #include <cstdio>
 #include <Meta/OpenGL.h>
 #include <Resources/DataBlock.h>
+
+#include <vector>
+
 using namespace OpenEngine::Resources;
+using namespace std;
+
+typedef vector<pair<unsigned int,float> > Weights;
+
+const GLint gl_color_formats[]          = {GL_RGB, GL_RGBA, GL_BGR, GL_BGRA};
+const GLint gl_internal_color_formats[] = {GL_RGB, GL_RGBA, GL_RGB, GL_RGBA};
+const GLint gl_wrappings[]              = {GL_CLAMP, GL_REPEAT};
+
 c-declare-end
 )
-
-(define null
-  (c-lambda () DataBlock "___result_voidstar = NULL;"))
-
 
 (define gl-make-program
   (c-lambda (char-string char-string) int 
@@ -217,10 +327,39 @@ APPLY-SHADER-END
 (c-define-type CharArray (pointer "char"))
 
 (define (gl-bind-texture texture)
-  (with-access texture (Texture image)
-    (with-access image (Bitmap width height c-data)
-      ((c-lambda (int int CharArray) int
+  (with-access texture (Texture image wrapping-s wrapping-t)
+    (with-access image (Bitmap width height format c-data)
+      ;; (display "color format: ")
+      ;; (display format)
+      (newline)
+      (let ([gl-wrapping 
+            (lambda (wrapping) 
+             (cond [(eqv? wrapping 'clamp)
+                    0]
+                   [(eqv? wrapping 'repeat)
+                    1]
+                   [(error "Unsupported texture wrapping format")]))])
+        (let ([gl-format-index 
+               (cond [(eqv? format 'rgb)
+                      0]
+                     [(eqv? format 'rgba)
+                      1]
+                     [(eqv? format 'bgr)
+                      2]
+                     [(eqv? format 'bgra)
+                      3]
+                     [(error "Unsupported texture color format")])]
+              [gl-wrapping-index-s (gl-wrapping wrapping-s)]
+              [gl-wrapping-index-t (gl-wrapping wrapping-t)])
+          ((c-lambda (int int int int int CharArray) int
 #<<gl-bind-texture-end
+const int width             = ___arg1;
+const int height            = ___arg2;
+const GLint format          = gl_color_formats[___arg3];
+const GLint internal_format = gl_internal_color_formats[___arg3];
+const GLint s_wrapping      = gl_wrappings[___arg4];
+const GLint t_wrapping      = gl_wrappings[___arg5];
+const char* data            = ___arg6;
 
 // todo: set these gl state parameters once in an inititialization phase.
 // glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
@@ -237,30 +376,33 @@ glGenTextures(1, &texid);
 CHECK_FOR_GL_ERROR();
 
 //printf("tid: %x\n", texid);
-//printf("width: %d height: %d data: %x\n", ___arg1, ___arg2, ___arg3);
+//printf("width: %d height: %d data: %x\n", width, height, data);
 
 glBindTexture(GL_TEXTURE_2D, texid);
 
 glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, s_wrapping);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, t_wrapping);
 CHECK_FOR_GL_ERROR();
 
 glTexImage2D(GL_TEXTURE_2D,
 	     0, // mipmap level
-	     GL_RGBA,
-	     ___arg1,
-	     ___arg2,
+	     internal_format, // internal format (ex. source format with compression)
+	     width,
+	     height,
 	     0, // border
-	     GL_RGBA,
-	     GL_UNSIGNED_BYTE,
-	     ___arg3);
+	     format, // source format (ex. rgb, rgba, luminance and what not)
+	     GL_UNSIGNED_BYTE, // for now assume one byte per color channel.
+	     data);
 CHECK_FOR_GL_ERROR();
 glBindTexture(GL_TEXTURE_2D, 0);
 ___result = texid;
 
 gl-bind-texture-end
-) width height c-data))))
+) width height gl-format-index gl-wrapping-index-s 
+  gl-wrapping-index-t c-data))))))
 
 (define gl-apply-mesh
   (c-lambda (DataBlock DataBlock DataBlock DataBlock int) void
@@ -305,7 +447,7 @@ apply-mesh-end
 
 (define (gl-push-transformation trans)
   (with-access trans (Transformation c-matrix)
-    ((c-lambda (FloatArray) void
+    ((c-lambda ((pointer float)) void
        "glPushMatrix(); glMultMatrixf(___arg1);")
      c-matrix)))
 
@@ -326,7 +468,7 @@ apply-mesh-end
 
 
 (define gl-viewing-volume
-  (c-lambda (FloatArray FloatArray) void
+  (c-lambda ((pointer float) (pointer float)) void
 #<<GL-VIEWING-VOLUME-END
   float* proj = ___arg1;
   float* view = ___arg2;
@@ -350,4 +492,80 @@ apply-mesh-end
   glMultMatrixf(view);
   CHECK_FOR_GL_ERROR();
 GL-VIEWING-VOLUME-END
+))
+
+
+;; skinning
+(define init-skin-mesh
+  (c-lambda (DataBlock ;; dest-verts
+             DataBlock);; dest-norms
+      void
+#<<c-init-skin-mesh-end
+memset(___arg1->GetVoidData(), 0x0, sizeof(float) * ___arg1->GetSize() * ___arg1->GetDimension());
+memset(___arg2->GetVoidData(), 0x0, sizeof(float) * ___arg2->GetSize() * ___arg2->GetDimension());
+c-init-skin-mesh-end
+))
+
+(c-define-type Weights (pointer "Weights"))
+
+(c-declare #<<c-declare-end
+
+inline void mul_vertex(float* src, float* dest, float* m) {
+   dest[0] = src[0] * m[0] + src[1] * m[4] + src[2] * m[8]  + m[12];
+   dest[1] = src[0] * m[1] + src[1] * m[5] + src[2] * m[9]  + m[13];
+   dest[2] = src[0] * m[2] + src[1] * m[6] + src[2] * m[10] + m[14];
+}
+
+inline void mul_normal(float* src, float* dest, float* m) {
+   dest[0] = src[0] * m[0] + src[1] * m[3] + src[2] * m[6];
+   dest[1] = src[0] * m[1] + src[1] * m[4] + src[2] * m[7];
+   dest[2] = src[0] * m[2] + src[1] * m[5] + src[2] * m[8];
+}
+
+c-declare-end
+)
+
+(define skin-mesh
+  (c-lambda (DataBlock         ;; src-verts
+             DataBlock         ;; src-norms
+             DataBlock         ;; dest-verts
+             DataBlock         ;; dest-norms
+             (pointer "float") ;; bone matrix
+             (pointer "float") ;; bone rotation matrix (no scaling)
+             Weights)          ;; vertex weights
+      void 
+#<<c-skin-mesh-end
+// printf("skin\n");
+
+float* src_verts = (float*)___arg1->GetVoidData();
+float* src_norms = (float*)___arg2->GetVoidData();
+float* dest_verts = (float*)___arg3->GetVoidData();
+float* dest_norms = (float*)___arg4->GetVoidData();
+float* m = ___arg5;
+float* m_rot = ___arg6;
+
+vector<pair<unsigned int, float> >::iterator itr = ___arg7->begin();
+for (; itr != ___arg7->end(); ++itr) {
+    unsigned int index = itr->first;
+    float weight = itr->second; 
+ 
+    float* src_v = &src_verts[index*3];
+    float* src_n = &src_norms[index*3];
+ 
+    float* dest_v = &dest_verts[index*3];
+    float* dest_n = &dest_norms[index*3];
+
+    float tmp[3];
+    // apply weighted bone transformation
+    mul_vertex(src_v, tmp, m);
+    dest_v[0] += tmp[0] * weight;
+    dest_v[1] += tmp[1] * weight;
+    dest_v[2] += tmp[2] * weight;
+
+    mul_normal(src_n, tmp, m_rot);
+    dest_n[0] += tmp[0] * weight;
+    dest_n[1] += tmp[1] * weight;
+    dest_n[2] += tmp[2] * weight;
+}
+c-skin-mesh-end
 ))
