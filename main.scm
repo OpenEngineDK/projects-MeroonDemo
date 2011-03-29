@@ -37,6 +37,10 @@
   (instantiate TransformationNode
     :children (list arne-model)))
 
+(define finn
+  (instantiate TransformationNode
+    :children (list finn-model)))
+
 (define light
   (instantiate TransformationNode
     :children (list (instantiate LightNode))))
@@ -61,11 +65,11 @@
    (make-animator ;; deprecated stuff (see animation.scm)
     (TransformationNode-transformation light)
     (list (cons 3. (instantiate Transformation
-                     :translation (vector 0. 100. 100.)))
+                     :translation (vector 0. 100. 500.)))
           (cons 6. (instantiate Transformation
-                     :translation (vector 0. -100. 100.)))
+                     :translation (vector 0. -100. 500.)))
           (cons 9. (instantiate Transformation
-                     :translation (vector 0. 100. 100.)))))
+                     :translation (vector 0. 100. 500.)))))
    ;; move the dragon jaw
    (make-animator ;; deprecated stuff (see animation.scm)
     (TransformationNode-transformation jaw-node)
@@ -108,10 +112,16 @@
 
 
 ;; setup some fishy animation demo
+(if sharky-model
+    (begin
+      (scene-add-node! top sharky-model)
+      (move! dragon 0. 100 0.)
+      (play (cadr *animations*) animator)))
+
 (if finn-model
     (begin
-      (scene-add-node! top finn-model)
-      (move! dragon 0. 10. 0.)
+      (scene-add-node! top finn)
+      (move! finn 0. 0. 350.)
       (play (car *animations*) animator)))
 
 (let* ([can   (instantiate Canvas3D
@@ -146,6 +156,6 @@
 		     (process-modules dt modules)
                      (queue-run *main-queue*)
                      (render! ctx can)
-                     ;; (##gc)
-		     (thread-sleep! 0.005)
+                     (##gc) ;; trigger gc to minimize pause times
+                     (thread-sleep! 0.005)
                      ))))

@@ -13,8 +13,9 @@ using namespace OpenEngine::Resources;
 using namespace std;
 
 
-// q: what is the difference between bone and transformation??
-// a: bones contain vertex weights and are used to skin an animated mesh.
+// Q: what is the difference between bone and transformation??  
+// A: bones are transformations which contain vertex weights and are
+//    used to skin an animated mesh.
 
 map<string, unsigned int> bones;            // bones referenced by animations
 map<string, unsigned int> transformations;  // transformations referenced by animations
@@ -22,7 +23,6 @@ map<string, unsigned int> transformations;  // transformations referenced by ani
 void add_db_scm(IDataBlock* db);
 void add_false_db_scm();
 void add_mesh_scm(int i);
-void add_animated_mesh_scm(int material_index, int number_of_bones);
 void set_pos_scm(float x, float y, float z);
 void set_rot_scm(float w, float x, float y, float z);
 void set_scale_scm(float x, float y, float z);
@@ -38,18 +38,21 @@ void append_empty_material_scm();
 
 
 // animation functions
-void add_position_key_scm(float time, float x, float y, float z);
-void add_rotation_key_scm(float time, float w, float x, float y, float z);
-void add_scaling_key_scm(float time, float x, float y, float z);
+void make_position_key_vector_scm(int size);
+void make_rotation_key_vector_scm(int size);
+void make_scaling_key_vector_scm(int size);
+
+void add_position_key_scm(float time, float x, float y, float z, int i);
+void add_rotation_key_scm(float time, float w, float x, float y, float z, int i);
+void add_scaling_key_scm(float time, float x, float y, float z, int i);
+
 void add_bone_animation_scm(int bone_index);
-
-void add_mesh_key_scm(float time, int mesh_index);
-void add_mesh_animation_scm();
-
 void add_transformation_animation_scm(int trans_index);
 
 void add_animation_scm(char* name, float duration, float ticks_per_second);
 void clear_animation_keys_scm();
+
+void add_animated_mesh_scm(int material_index, int number_of_bones);
 
 void readAnimations(aiAnimation** anims, unsigned int size) {
     unsigned int i, j, k;
@@ -61,29 +64,32 @@ void readAnimations(aiAnimation** anims, unsigned int size) {
         for (j = 0; j < anim->mNumChannels; ++j) {
             aiNodeAnim* bone_anim = anim->mChannels[anim->mNumChannels-j-1];
             
+            make_position_key_vector_scm(bone_anim->mNumPositionKeys);
             for (k = 0; k < bone_anim->mNumPositionKeys; ++k) {
                 aiVectorKey key = bone_anim->mPositionKeys[bone_anim->mNumPositionKeys-k-1];
                 double time = key.mTime;
                 aiVector3D pos = key.mValue;
                 
                 // printf("id: %d pos-key: %f value: (%f, %f, %f)\n", k, time, pos.x, pos.y, pos.z);
-                add_position_key_scm(time, pos.x, pos.y, pos.z);
+                add_position_key_scm(time, pos.x, pos.y, pos.z, bone_anim->mNumPositionKeys-k-1);
             }
 
+            make_rotation_key_vector_scm(bone_anim->mNumRotationKeys);
             for (k = 0; k < bone_anim->mNumRotationKeys; ++k) {
                 aiQuatKey key = bone_anim->mRotationKeys[bone_anim->mNumRotationKeys-k-1];
                 double time = key.mTime;
                 aiQuaternion q = key.mValue;
                 // printf("id: %d rot-key: %f value: (%f, %f, %f, %f)\n", k, time, q.w, q.x, q.y, q.z);
-                add_rotation_key_scm(time, q.w, q.x, q.y, q.z);
+                add_rotation_key_scm(time, q.w, q.x, q.y, q.z, bone_anim->mNumRotationKeys-k-1);
             }
 
+            make_scaling_key_vector_scm(bone_anim->mNumScalingKeys);
             for (k = 0; k < bone_anim->mNumScalingKeys; ++k) {
                 aiVectorKey key = bone_anim->mScalingKeys[bone_anim->mNumScalingKeys-k-1];
                 double time = key.mTime;
                 aiVector3D scale = key.mValue;
                 // printf("id: %d scale-key: %f value: (%f, %f, %f)\n", k, time, scale.x, scale.y, scale.z);
-                add_scaling_key_scm(time, scale.x, scale.y, scale.z);
+                add_scaling_key_scm(time, scale.x, scale.y, scale.z, bone_anim->mNumScalingKeys-k-1);
             }
             
             // get the referenced bone
@@ -259,7 +265,6 @@ void readMeshes(aiMesh** ms, unsigned int size) {
 
 
         if (m->HasBones()) {
-
             // add a copy of vertices and normals for original bind pose use.
             // @todo if more attributes need to be animated, they should also be copied.
             dest = new float[3 * num];
@@ -336,4 +341,3 @@ void readScene(const aiScene* scene) {
     aiNode* mRoot = scene->mRootNode;
     readNode(mRoot);
 }
-

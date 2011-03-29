@@ -18,7 +18,7 @@
   ([= bind-pose-vertices ;; the original "bind pose" mesh data 
      :immutable]
    [= bind-pose-normals 
-      :immutable]  
+      :immutable]
    [= bones ;; bones that affect this mesh
       :immutable :initializer list]
    ))
@@ -40,7 +40,7 @@
 (define-class ParallelAnimation Animation
   ([= child-animations
       :immutable
-      :initialiser list]
+      :initialiser vector]
    ))
 
 ;; evaluate child animations sequentually
@@ -73,18 +73,10 @@
       :immutable]
    ))
 
-;; vertex animation descriptor (not yet understood nor supported)
-(define-class MeshAnimation Animation
-  ([= mesh-keys 
-      :immutable]
-   ))
-
-
 (define-class Animator Object
   ([= playlist 
       :initializer list]   
    ))
-
 
 (define (make-animator-module animator bone-root)
   (let ([identity (instantiate Transformation)])
@@ -125,18 +117,61 @@
     (map (lambda (child-anim) (Animator-process time child-anim))
          child-animations)))
 
+;; ----- for old list-based animation keys -----
 ;; one can optimize by remembering car and cdr of first.
-(define (find-first-and-last time key-list)
-  (letrec ([visit (lambda (prev xs)
-                    (if (pair? xs)
-                        (if (> time (caar xs))
-                            (visit (car xs) (cdr xs))
-                            (cons prev (car xs)))
-                        #f))])
-    (if (pair? key-list)
-        (visit (car key-list) (cdr key-list))
-        #f)))
+;; (define (find-first-and-last time key-list)
+;;   (letrec ([visit (lambda (prev xs)
+;;                     (if (pair? xs)
+;;                         (if (> time (caar xs))
+;;                             (visit (car xs) (cdr xs))
+;;                             (cons prev (car xs)))
+;;                         #f))])
+;;     (if (pair? key-list)
+;;         (visit (car key-list) (cdr key-list))
+;;         #f)))
 
+
+;; code duplication in next two functions ... fixme
+(define (find-first-and-last-vec time keys)
+  (let ([->time-vec-pair (lambda (i) 
+                           (cons (f32vector-ref keys i) 
+                                 (vector (f32vector-ref keys (+ i 1)) 
+                                         (f32vector-ref keys (+ i 2))
+                                         (f32vector-ref keys (+ i 3)))))]) 
+    (letrec ([visit (lambda (i)
+                      (if (< i (f32vector-length keys))
+                          
+                          (if (> time (f32vector-ref keys i))
+                              (visit (+ i 4))
+                              (cons (->time-vec-pair (- i 4))
+                                    (->time-vec-pair i)))
+                            #f))])
+      (if keys 
+          (visit 4) 
+          #f))))
+
+(define (find-first-and-last-quat time keys)
+  (let ([->time-quat-pair (lambda (i) 
+                           (cons (f32vector-ref keys i) 
+                                 (instantiate Quaternion 
+                                     :w (f32vector-ref keys (+ i 1)) 
+                                     :x (f32vector-ref keys (+ i 2))
+                                     :y (f32vector-ref keys (+ i 3))
+                                     :z (f32vector-ref keys (+ i 4)))))])
+    (letrec ([visit (lambda (i)
+                      (if (< i (f32vector-length keys))
+                          
+                          (if (> time (f32vector-ref keys i))
+                              (visit (+ i 5))
+                              (cons (->time-quat-pair (- i 5))
+                                    (->time-quat-pair i)))
+                            #f))])
+      (if keys 
+          (visit 5) 
+          #f))))
+
+
+;; linear interpolation functions should be placed in ... math?
 (define (vector-interp v1 v2 scale)
   (let ([x (vector-ref v1 0)]
         [y (vector-ref v1 1)]
@@ -147,13 +182,11 @@
 
 (define (quaternion-interp q1 q2 scale)
   (instantiate Quaternion 
-      ;; try linear interpolation
       :w (+ (* (- 1.0 scale) (Quaternion-w q1)) (* scale (Quaternion-w q2)))
       :x (+ (* (- 1.0 scale) (Quaternion-x q1)) (* scale (Quaternion-x q2)))
       :y (+ (* (- 1.0 scale) (Quaternion-y q1)) (* scale (Quaternion-y q2)))
       :z (+ (* (- 1.0 scale) (Quaternion-z q1)) (* scale (Quaternion-z q2)))))
 
-;; lots of redundancy to be optimized ...
 (define-method (Animator-process time (animation TransformationAnimation))
   (with-access animation (TransformationAnimation 
                           transformation-node 
@@ -162,8 +195,8 @@
                           scaling-keys)
     (with-access transformation-node (TransformationNode transformation)
       ;; update translation
-      (let ([p (find-first-and-last time position-keys)]
-            [r (find-first-and-last time rotation-keys)])
+      (let ([p (find-first-and-last-vec time position-keys)]
+            [r (find-first-and-last-quat time rotation-keys)])
         (if r
             (let ([first (car r)]
                   [second (cdr r)])           
@@ -194,8 +227,8 @@
 (define-method (Animator-process time (animation BoneAnimation))
   (with-access animation (BoneAnimation bone position-keys rotation-keys scaling-keys)
     ;; update translation
-    (let ([p (find-first-and-last time position-keys)]
-          [r (find-first-and-last time rotation-keys)])
+    (let ([p (find-first-and-last-vec time position-keys)]
+          [r (find-first-and-last-quat time rotation-keys)])
       (if r
           (let ([first (car r)]
                 [second (cdr r)])           
@@ -251,7 +284,7 @@
                     (Transformation-rotation t1)
                     (Transformation-rotation t2)))))
 
-;; Q: do we include regular transformation nodes in bone accumulation
+;; Q: do we include regular transformation nodes in bone accumulation?
 
 ;; (define-method (Animator-update-bones (node TransformationNode))
 ;;   (with-access node (TransformationNode transformation)
@@ -275,17 +308,12 @@
 
 (define-method (Animator-update-bones (node BoneNode) tos)
   (with-access node (BoneNode transformation acc-transformation offset)
-    ;; (let* ([tos (car *bone-stack*)] ;; top of bone stack
     (let ([push-trans (compose-trans tos transformation)])
       (compose-trans! push-trans offset acc-transformation)
       (with-access acc-transformation (Transformation translation rotation)
         (update-c-matrix! rotation)
         (update-transformation-rot-and-scl! acc-transformation)
         (update-transformation-pos! acc-transformation)
-        ;; (set! *bone-stack* (cons push-trans *bone-stack*))
         (do ([children (SceneParent-children node) (cdr children)])
             ((null? children))
-          (Animator-update-bones (car children) push-trans)))
-        ;; (call-next-method)
-        ;;(set! *bone-stack* (cdr *bone-stack*))
-      )))
+          (Animator-update-bones (car children) push-trans))))))

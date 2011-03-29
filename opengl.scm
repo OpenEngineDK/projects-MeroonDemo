@@ -21,11 +21,9 @@
   (with-access ctx (GLContext light-count)
     (set! light-count 0))
   (gl-setup-lights ctx (Canvas3D-scene can))
-  (gl-render-scene ctx (Canvas3D-scene can))
-)
+  (gl-render-scene ctx (Canvas3D-scene can)))
 
 ;; Scene rendering
-
 (define-generic (gl-render-scene ctx (node Object))
   (error "Unsupported scene node"))
 
@@ -72,12 +70,10 @@
                      bind-pose-vertices 
                      bind-pose-normals
                      bones)
-    (if (foldl (lambda (b r) 
-                 (or b r)) 
-               #f 
-               (map (lambda (b) 
-                      (BoneNode-dirty b)) 
-                    bones)) ;; if dirty ... prettier code needed!
+    (if (foldl (lambda (b r) (or b r))
+               #f
+               (map (lambda (b) (BoneNode-dirty b))
+                    bones)) ;; if at least one bone is dirty ... prettier code needed!
         (begin
           (init-skin-mesh vertices normals)
           (map (lambda (b) 
@@ -93,23 +89,20 @@
                                 acc-transformation))
                               (BoneNode-c-weights b))))
                bones)))
-        (call-next-method)))
+    (call-next-method)))
 
 (define-method (gl-render-mesh ctx (mesh Mesh))
   (with-access mesh (Mesh indices vertices normals uvs texture)
     (with-access ctx (GLContext textures)
-      (if (eq? texture #f)
-	  (gl-apply-mesh indices vertices normals uvs 0)
+      (if texture
 	  (let ([tid (lookup-texture-id ctx texture)])
-	    (if (eq? tid #f)
-		(begin
-		  (let ([tid (gl-bind-texture texture)])
-		    (set! textures (cons (cons texture tid) textures))
-		    (gl-apply-mesh indices vertices normals uvs tid)))
-		(begin
-		  (gl-apply-mesh indices vertices normals uvs tid))))))))
+	    (if tid
+                (gl-apply-mesh indices vertices normals uvs tid)
+                (let ([tid (gl-bind-texture texture)])
+                  (set! textures (cons (cons texture tid) textures))
+                  (gl-apply-mesh indices vertices normals uvs tid))))
+          (gl-apply-mesh indices vertices normals uvs 0)))))
   
-
 (define-method (gl-render-scene ctx (node MeshNode))
   (gl-render-mesh ctx (MeshNode-mesh node)))
 
@@ -328,30 +321,31 @@ APPLY-SHADER-END
 
 (define (gl-bind-texture texture)
   (with-access texture (Texture image wrapping-s wrapping-t)
-    (with-access image (Bitmap width height format c-data)
-      ;; (display "color format: ")
-      ;; (display format)
-      (newline)
-      (let ([gl-wrapping 
-            (lambda (wrapping) 
-             (cond [(eqv? wrapping 'clamp)
-                    0]
-                   [(eqv? wrapping 'repeat)
-                    1]
-                   [(error "Unsupported texture wrapping format")]))])
-        (let ([gl-format-index 
-               (cond [(eqv? format 'rgb)
-                      0]
-                     [(eqv? format 'rgba)
-                      1]
-                     [(eqv? format 'bgr)
-                      2]
-                     [(eqv? format 'bgra)
-                      3]
-                     [(error "Unsupported texture color format")])]
-              [gl-wrapping-index-s (gl-wrapping wrapping-s)]
-              [gl-wrapping-index-t (gl-wrapping wrapping-t)])
-          ((c-lambda (int int int int int CharArray) int
+    (if image
+        (with-access image (Bitmap width height format c-data)
+          ;; (display "color format: ")
+          ;; (display format)
+          (newline)
+          (let ([gl-wrapping 
+                 (lambda (wrapping) 
+                   (cond [(eqv? wrapping 'clamp)
+                          0]
+                         [(eqv? wrapping 'repeat)
+                          1]
+                         [(error "Unsupported texture wrapping format")]))])
+            (let ([gl-format-index 
+                   (cond [(eqv? format 'rgb)
+                          0]
+                         [(eqv? format 'rgba)
+                          1]
+                         [(eqv? format 'bgr)
+                          2]
+                         [(eqv? format 'bgra)
+                          3]
+                         [(error "Unsupported texture color format")])]
+                  [gl-wrapping-index-s (gl-wrapping wrapping-s)]
+                  [gl-wrapping-index-t (gl-wrapping wrapping-t)])
+              ((c-lambda (int int int int int CharArray) int
 #<<gl-bind-texture-end
 const int width             = ___arg1;
 const int height            = ___arg2;
@@ -402,7 +396,8 @@ ___result = texid;
 
 gl-bind-texture-end
 ) width height gl-format-index gl-wrapping-index-s 
-  gl-wrapping-index-t c-data))))))
+  gl-wrapping-index-t c-data))))
+        0)))
 
 (define gl-apply-mesh
   (c-lambda (DataBlock DataBlock DataBlock DataBlock int) void

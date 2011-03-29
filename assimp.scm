@@ -49,18 +49,72 @@ c-declare-end
 (define *mesh-animations* '())
 (define *animations* '()) ;; contains all the loaded animation handlers
 
-;; animation functions
-(c-define (add-position-key time x y z)
-    (float float float float) void "add_position_key_scm" ""
-  (set! *position-keys* (cons (cons time (vector x y z)) *position-keys*)))
 
-(c-define (add-rotation-key time w x y z)
-    (float float float float float) void "add_rotation_key_scm" ""
-  (set! *rotation-keys* (cons (cons time (instantiate Quaternion :w w :x x :y y :z z)) *rotation-keys*)))
+;; --- file operations ---
 
-(c-define (add-scaling-key time x y z)
-    (float float float float) void "add_scaling_key_scm" ""
-  (set! *scaling-keys* (cons (cons time (vector x y z)) *scaling-keys*)))
+(define (->file-dir path) 
+  (if (string? path)
+      (let ([len (string-length path)])
+	(letrec ([last-sep (lambda (i r) 
+			     (cond
+			      [(< i len)
+			       (if (equal? (string-ref path i) #\/)
+				   (last-sep (+ 1 i) i)
+				   (last-sep (+ 1 i) r))]
+			      [else r]))])
+	  (substring path 0 (+ 1 (last-sep 0 0)))))))
+
+
+
+;; --- animation functions ---
+
+;; use make-*-key-vector functions to construct big-ass float32
+;; vector.
+;;
+;; Q: why not use regular vector?
+;; A: because GC will traverse each entry in its mark phase, leading
+;;    to very long gc times.
+;;
+;; Q: why use ##still-copy?
+;; A: because this tells GC never to relocate the vector, potentially
+;;    saving lots of GC-time.
+
+(c-define (make-position-key-vector size)
+    (int) void "make_position_key_vector_scm" ""
+  (set! *position-keys* (##still-copy (make-f32vector (* size 4)))))
+
+(c-define (make-rotation-key-vector size)
+    (int) void "make_rotation_key_vector_scm" ""
+  (set! *rotation-keys* (##still-copy (make-f32vector (* size 5)))))
+
+(c-define (make-scaling-key-vector size)
+    (int) void "make_scaling_key_vector_scm" ""
+  (set! *scaling-keys* (##still-copy (make-f32vector (* size 4)))))
+
+(c-define (add-position-key time x y z i)
+    (float32 float32 float32 float32 int) void "add_position_key_scm" ""
+  (let ([p (* i 4)])
+    (f32vector-set! *position-keys* p time)
+    (f32vector-set! *position-keys* (+ p 1) x)
+    (f32vector-set! *position-keys* (+ p 2) y)
+    (f32vector-set! *position-keys* (+ p 3) z)))
+
+(c-define (add-rotation-key time w x y z i)
+    (float32 float32 float32 float32 float32 int) void "add_rotation_key_scm" ""
+  (let ([p (* i 5)])
+    (f32vector-set! *rotation-keys* p time)
+    (f32vector-set! *rotation-keys* (+ p 1) w)
+    (f32vector-set! *rotation-keys* (+ p 2) x)
+    (f32vector-set! *rotation-keys* (+ p 3) y)
+    (f32vector-set! *rotation-keys* (+ p 4) z)))
+
+(c-define (add-scaling-key time x y z i)
+    (float32 float32 float32 float32 int) void "add_scaling_key_scm" ""
+  (let ([p (* i 4)])
+    (f32vector-set! *scaling-keys* p time)
+    (f32vector-set! *scaling-keys* (+ p 1) x)
+    (f32vector-set! *scaling-keys* (+ p 2) y)
+    (f32vector-set! *scaling-keys* (+ p 3) z)))
 
 (c-define (clear-animation-keys)
     () void "clear_animation_keys_scm" "" 
@@ -93,52 +147,29 @@ c-declare-end
       (set! info "animated\\n"))
     (set! *bone-animations* (cons (instantiate TransformationAnimation
                                       :transformation-node trans
-                                      :position-keys *position-keys*
+                                      :position-keys  *position-keys*
                                       :rotation-keys *rotation-keys*
                                       :scaling-keys *scaling-keys*)
                                   *bone-animations*))
     (clear-animation-keys)))
 
-(c-define (add-mesh-key time mesh-index)
-    (float int) void "add_mesh_key_scm" ""
-  (set! *mesh-keys* (cons 
-                     (cons 
-                      time 
-                      (list-ref *loaded-meshes* mesh-index)) 
-                     *mesh-keys*)))
-
-(c-define (add-mesh-animation)
-    () void "add_mesh_animation_scm" ""
-  (set! *mesh-animations* (cons 
-                           (instantiate MeshAnimation
-                               :mesh-keys *mesh-keys*)
-                           *mesh-animations*))
-  (set! *mesh-keys* '()))
-
 (c-define (add-animation name duration ticks-per-second)
     (char-string float float) void "add_animation_scm" ""
-  (set! *animations* (cons 
+  (let ([anims (append *bone-animations* *mesh-animations*)])
+    ;; @todo : if only one sub-animation exists, don't wrap it in
+    ;;         ParallellAnimation
+        (set! *animations* (cons 
                       (instantiate ParallelAnimation
                           :name name
                           :duration duration
                           :ticks-per-second ticks-per-second
-                          :child-animations (append *bone-animations* *mesh-animations*))
-                      *animations*))
+                          :child-animations anims)
+                      *animations*)))
   (set! *mesh-animations* '())
   (set! *bone-animations* '()))
 
 
-(define (->file-dir path) 
-  (if (string? path)
-      (let ([len (string-length path)])
-	(letrec ([last-sep (lambda (i r) 
-			     (cond
-			      [(< i len)
-			       (if (equal? (string-ref path i) #\/)
-				   (last-sep (+ 1 i) i)
-				   (last-sep (+ 1 i) r))]
-			      [else r]))])
-	  (substring path 0 (+ 1 (last-sep 0 0)))))))
+;; --- geometry loading ---
 
 (c-define (add-db db)
     (DataBlock) void "add_db_scm" ""
@@ -197,7 +228,7 @@ c-declare-end
 
 (c-define (set-pos x y z)
     (float float float) void "set_pos_scm" ""
-    (set! *transformation-pos* (list->vector `(,x ,y ,z))))
+    (set! *transformation-pos* (vector x y z)))
 
 (c-define (set-rot w x y z)
     (float float float float) void "set_rot_scm" ""
@@ -205,7 +236,7 @@ c-declare-end
 
 (c-define (set-scale x y z)
     (float float float) void "set_scale_scm" ""
-    (set! *transformation-scale* (list->vector `(,x ,y ,z))))
+    (set! *transformation-scale* (vector x y z)))
 
 (c-define (add-bone-node weights)
     (Weights) int "add_bone_node_scm" ""
@@ -308,7 +339,6 @@ else {
 }
 c-load-scene-end
 ))
-
 
 (define (load-scene path)
   (set! *scene-root* (instantiate SceneParent))
