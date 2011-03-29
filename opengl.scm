@@ -11,6 +11,21 @@
      => (lambda (p) (cdr p))]
     [else #f]))
 
+(define-method (initialize-context! (ctx GLContext))
+  ((c-lambda () void 
+#<<INIT_GL_CONTEXT_END
+// todo: set these gl state parameters once in an inititialization phase.
+// glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+glEnable(GL_LIGHTING); 
+glEnable(GL_TEXTURE_2D); 
+glEnable(GL_DEPTH_TEST);						   
+glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+glShadeModel(GL_SMOOTH);
+CHECK_FOR_GL_ERROR();
+INIT_GL_CONTEXT_END
+)))
+
 ;; Canvas rendering
 
 (define-method (render! (ctx GLContext) (can Canvas3D))
@@ -22,6 +37,7 @@
     (set! light-count 0))
   (gl-setup-lights ctx (Canvas3D-scene can))
   (gl-render-scene ctx (Canvas3D-scene can)))
+
 
 ;; Scene rendering
 (define-generic (gl-render-scene ctx (node Object))
@@ -354,16 +370,6 @@ const GLint internal_format = gl_internal_color_formats[___arg3];
 const GLint s_wrapping      = gl_wrappings[___arg4];
 const GLint t_wrapping      = gl_wrappings[___arg5];
 const char* data            = ___arg6;
-
-// todo: set these gl state parameters once in an inititialization phase.
-// glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-glEnable(GL_LIGHTING); 
-glEnable(GL_TEXTURE_2D); 
-glEnable(GL_DEPTH_TEST);						   
-glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-glShadeModel(GL_SMOOTH);
-CHECK_FOR_GL_ERROR();
 
 GLuint texid;
 glGenTextures(1, &texid);

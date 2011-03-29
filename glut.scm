@@ -84,7 +84,9 @@ glut-make-window-end
 (define (get-context win)
   (and (pair? win)
        (equal? (car win) 'glut-window)
-       (make-GLUTContext (instantiate GLContext))))
+       (let ([ctx (make-GLUTContext (instantiate GLContext))])
+         (initialize-context! ctx) 
+         ctx)))
 
 (define (set-glut-idle-function fn)
   (set! *glut-idle-function* fn))
@@ -114,3 +116,6 @@ glut-make-window-end
 (define-method (render! (ctx GLUTContext) (can Canvas))
   (render! (GLUTContext-gl-context ctx) can)
   (glut-redisplay))
+
+(define-method (initialize-context! (ctx GLUTContext))
+  (initialize-context! (GLUTContext-gl-context ctx)))

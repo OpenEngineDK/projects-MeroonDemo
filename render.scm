@@ -4,3 +4,5 @@
 
 ;; Generic rendering function
 (define-generic (render! (ctx Context) (can Canvas)))
+
+(define-generic (initialize-context! (ctx Context)))
