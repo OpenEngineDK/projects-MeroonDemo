@@ -187,77 +187,58 @@
       :y (+ (* (- 1.0 scale) (Quaternion-y q1)) (* scale (Quaternion-y q2)))
       :z (+ (* (- 1.0 scale) (Quaternion-z q1)) (* scale (Quaternion-z q2)))))
 
+
+;; update transformation helper
+(define (animate-transformation transformation time position-keys rotation-keys scaling-keys)
+  (with-access transformation (Transformation translation rotation)
+    (let ([p (find-first-and-last-vec time position-keys)]
+          [r (find-first-and-last-quat time rotation-keys)])
+      (if r
+          (let ([first (car r)]
+                [second (cdr r)])           
+            (set! rotation 
+                  (quaternion-interp 
+                   (cdr first)  
+                   (cdr second) 
+                   (/ (- time (car first)) ;; time-scale
+                      (- (car second) 
+                         (car first)))))
+            (update-c-matrix! rotation))
+          (update-transformation-rot-and-scl! transformation))
+      (if p
+          (let ([first (car p)]
+                [second (cdr p)])
+            (set! translation 
+                  (vector-interp 
+                   (cdr first)  ;; from-pos
+                   (cdr second) ;; to-pos
+                   (/ (- time (car first)) ;; time-scale
+                      (- (car second) 
+                         (car first)))))
+            (update-transformation-pos! transformation))))))
+
+
 (define-method (Animator-process time (animation TransformationAnimation))
   (with-access animation (TransformationAnimation 
                           transformation-node 
                           position-keys 
                           rotation-keys 
                           scaling-keys)
-    (with-access transformation-node (TransformationNode transformation)
-      ;; update translation
-      (let ([p (find-first-and-last-vec time position-keys)]
-            [r (find-first-and-last-quat time rotation-keys)])
-        (if r
-            (let ([first (car r)]
-                  [second (cdr r)])           
-              (with-access transformation (Transformation rotation)
-                (set! rotation 
-                      (quaternion-interp 
-                       (cdr first)  
-                       (cdr second) 
-                       (/ (- time (car first)) ;; time-scale
-                          (- (car second) 
-                             (car first)))))
-                (update-c-matrix! rotation))
-              (update-transformation-rot-and-scl! transformation)))
-        (if p
-            (let ([first (car p)]
-                  [second (cdr p)])
-              (with-access transformation (Transformation translation)
-                (set! translation 
-                      (vector-interp 
-                       (cdr first)  ;; from-pos
-                       (cdr second) ;; to-pos
-                       (/ (- time (car first)) ;; time-scale
-                          (- (car second) 
-                             (car first)))))
-                (update-transformation-pos! transformation))))))))
-
+    (animate-transformation (TransformationNode-transformation transformation-node)
+                            time 
+                            position-keys
+                            rotation-keys
+                            scaling-keys)))
 
 (define-method (Animator-process time (animation BoneAnimation))
   (with-access animation (BoneAnimation bone position-keys rotation-keys scaling-keys)
-    ;; update translation
-    (let ([p (find-first-and-last-vec time position-keys)]
-          [r (find-first-and-last-quat time rotation-keys)])
-      (if r
-          (let ([first (car r)]
-                [second (cdr r)])           
-            (with-access bone (BoneNode transformation dirty)
-              (set! dirty #t)
-              (with-access transformation (Transformation rotation)
-                (set! rotation 
-                      (quaternion-interp 
-                       (cdr first)  
-                       (cdr second) 
-                       (/ (- time (car first)) ;; time-scale
-                          (- (car second) 
-                             (car first)))))
-                (update-c-matrix! rotation))
-              (update-transformation-rot-and-scl! transformation))))
-      (if p
-          (let ([first (car p)]
-                [second (cdr p)])           
-            (with-access bone (BoneNode transformation dirty)
-              (set! dirty #t)
-              (with-access transformation (Transformation translation)
-                (set! translation 
-                      (vector-interp 
-                       (cdr first)  ;; from-pos
-                       (cdr second) ;; to-pos
-                       (/ (- time (car first)) ;; time-scale
-                          (- (car second) 
-                             (car first)))))
-                (update-transformation-pos! transformation))))))))
+    (with-access bone (BoneNode dirty transformation)
+      (animate-transformation transformation
+                              time 
+                              position-keys
+                              rotation-keys
+                              scaling-keys)
+      (set! dirty #t))))
 
 (define (compose-trans t1 t2)
   (with-access t1 (Transformation rotation)
