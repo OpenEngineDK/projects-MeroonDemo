@@ -22,7 +22,8 @@
 
 (define-method (initialize-context! (ctx GLContext))
   (with-access ctx (GLContext vbo?)
-    (set! vbo? ((c-lambda () bool "___result = glewIsSupported(\"GL_VERSION_2_0\");"))))
+    (set! vbo? ((c-lambda () bool "___result = glewIsSupported(\"GL_VERSION_2_0\");")))
+    (set! fbo? ((c-lambda () bool "___result = (glewGetExtension(\"GL_EXT_framebuffer_object\") == GL_TRUE);"))))  
   ((c-lambda () void #<<INIT_GL_CONTEXT_END
 
 // todo: set these gl state parameters once in an inititialization phase.
@@ -133,7 +134,7 @@ INIT_GL_CONTEXT_END
         (let ([tid (gl-lookup-texture-id ctx texture)])
           (if tid
               tid
-            (let ([tid (gl-bind-texture texture)])
+            (let ([tid (gl-make-texture texture)])
               (set! textures (cons (cons texture tid) textures))
               tid)))
         0)))
@@ -457,12 +458,10 @@ else ___result = 0; // right now we simply associate a non-existent buffer with 
 gl-bind-vbo-end
 ))
 
-(define (gl-bind-texture texture)
+(define (gl-make-texture texture)
   (with-access texture (Texture image wrapping-s wrapping-t)
     (if image
         (with-access image (Bitmap width height format c-data)
-          ;; (display "color format: ")
-          ;; (display format)
           (newline)
           (let ([gl-wrapping 
                  (lambda (wrapping) 
@@ -484,7 +483,7 @@ gl-bind-vbo-end
                   [gl-wrapping-index-s (gl-wrapping wrapping-s)]
                   [gl-wrapping-index-t (gl-wrapping wrapping-t)])
               ((c-lambda (int int int int int (pointer "char")) int
-#<<gl-bind-texture-end
+#<<gl-make-texture-end
 const int width             = ___arg1;
 const int height            = ___arg2;
 const GLint format          = gl_color_formats[___arg3];
@@ -522,7 +521,7 @@ CHECK_FOR_GL_ERROR();
 glBindTexture(GL_TEXTURE_2D, 0);
 ___result = texid;
 
-gl-bind-texture-end
+gl-make-texture-end
 ) width height gl-format-index gl-wrapping-index-s 
   gl-wrapping-index-t c-data))))
         0)))
@@ -662,7 +661,9 @@ GL-VIEWING-VOLUME-END
 ))
 
 
-;; skinning
+;; --- skinning ---
+;; (maybe this kind of skinning should be moved to animation.scm since
+;; it is not gl specific.
 (define init-skin-mesh
   (c-lambda (DataBlock ;; dest-verts
              DataBlock);; dest-norms

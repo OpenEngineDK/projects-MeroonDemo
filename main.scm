@@ -134,6 +134,12 @@
        [last-time (time-in-seconds)])
   (display "Starting main loop.")
   (newline)
+  (display "OpenGL vbo support: ")
+  (display (GLContext-vbo? (GLUTContext-gl-context ctx)))
+  (newline)
+  (display "OpenGL fbo support: ")
+  (display (GLContext-fbo? (GLUTContext-gl-context ctx)))
+  (newline)
   (set-glut-keyboard-function
    (lambda (key state x y)
      (keymap-handle *current-keymap* key state)))
