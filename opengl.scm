@@ -3,17 +3,28 @@
 (define-class GLContext Context 
   ([= textures :initializer list]
    [= shaders :initializer list]
-   [= light-count :initializer (lambda () 0)]))
+   [= vbos :initializer list]
+   [= num-lights :initializer (lambda () 0)]
+   [= vbo? :initializer (lambda () #f)]
+   [= fbo? :initializer (lambda () #f)]))
 
-(define-generic (lookup-texture-id (ctx GLContext) (texture Texture))
+(define-generic (gl-lookup-texture-id (ctx GLContext) texture)
   (cond
     [(assoc texture (GLContext-textures ctx))
      => (lambda (p) (cdr p))]
     [else #f]))
 
+(define-generic (gl-lookup-vbo-id (ctx GLContext) db)
+  (cond
+    [(assoc db (GLContext-vbos ctx))
+     => (lambda (p) (cdr p))]
+    [else #f]))
+
 (define-method (initialize-context! (ctx GLContext))
-  ((c-lambda () void 
-#<<INIT_GL_CONTEXT_END
+  (with-access ctx (GLContext vbo?)
+    (set! vbo? ((c-lambda () bool "___result = glewIsSupported(\"GL_VERSION_2_0\");"))))
+  ((c-lambda () void #<<INIT_GL_CONTEXT_END
+
 // todo: set these gl state parameters once in an inititialization phase.
 // glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
@@ -23,6 +34,7 @@ glEnable(GL_DEPTH_TEST);
 glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 glShadeModel(GL_SMOOTH);
 CHECK_FOR_GL_ERROR();
+
 INIT_GL_CONTEXT_END
 )))
 
@@ -33,8 +45,8 @@ INIT_GL_CONTEXT_END
   (gl-viewport (Canvas-width can) (Canvas-height can))
   (gl-viewing-volume (Projection-c-matrix (Camera-proj (Canvas3D-camera can)))
 		     (Transformation-c-matrix (Camera-view (Canvas3D-camera can))))
-  (with-access ctx (GLContext light-count)
-    (set! light-count 0))
+  (with-access ctx (GLContext num-lights)
+    (set! num-lights 0))
   (gl-setup-lights ctx (Canvas3D-scene can))
   (gl-render-scene ctx (Canvas3D-scene can)))
 
@@ -65,6 +77,9 @@ INIT_GL_CONTEXT_END
 
 
 (define-generic (gl-render-mesh ctx (mesh Object))
+  (error "Unsupported mesh type"))
+
+(define-generic (gl-render-mesh-vbo ctx (mesh Object))
   (error "Unsupported mesh type"))
 
 (define (foldl f n l)
@@ -107,20 +122,45 @@ INIT_GL_CONTEXT_END
                bones)))
     (call-next-method)))
 
+(define (fetch-texture ctx texture)
+  (with-access ctx (GLContext textures)
+    (if texture
+        (let ([tid (gl-lookup-texture-id ctx texture)])
+          (if tid
+              tid
+            (let ([tid (gl-bind-texture texture)])
+              (set! textures (cons (cons texture tid) textures))
+              tid)))
+        0)))
+
+
 (define-method (gl-render-mesh ctx (mesh Mesh))
   (with-access mesh (Mesh indices vertices normals uvs texture)
-    (with-access ctx (GLContext textures)
-      (if texture
-	  (let ([tid (lookup-texture-id ctx texture)])
-	    (if tid
-                (gl-apply-mesh indices vertices normals uvs tid)
-                (let ([tid (gl-bind-texture texture)])
-                  (set! textures (cons (cons texture tid) textures))
-                  (gl-apply-mesh indices vertices normals uvs tid))))
-          (gl-apply-mesh indices vertices normals uvs 0)))))
+      (let ([tid (fetch-texture ctx texture)])
+        (gl-apply-mesh indices vertices normals uvs tid))))
+
+(define (fetch-vbo ctx db index?)
+  (let ([vbo-id (gl-lookup-vbo-id ctx db)])
+    (if vbo-id
+        vbo-id
+        (let ([vbo-id (gl-bind-vbo db index?)])
+          (with-access ctx (GLContext vbos)
+            (set! vbos (cons (cons db vbo-id) vbos)))
+          vbo-id))))
+
+(define-method (gl-render-mesh-vbo ctx (mesh Mesh))
+  (with-access mesh (Mesh indices vertices normals uvs texture)
+    (let ([index-vbo (fetch-vbo ctx indices #t)]
+          [vertex-vbo (fetch-vbo ctx vertices #f)]
+          [normal-vbo (fetch-vbo ctx normals #f)]
+          [uv-vbo (fetch-vbo ctx uvs #f)]
+          [tid (fetch-texture ctx texture)])
+      (gl-apply-mesh-vbo index-vbo vertex-vbo normal-vbo uv-vbo tid indices))))
   
 (define-method (gl-render-scene ctx (node MeshNode))
-  (gl-render-mesh ctx (MeshNode-mesh node)))
+  (if (GLContext-vbo? ctx)
+      (gl-render-mesh-vbo ctx (MeshNode-mesh node))
+      (gl-render-mesh ctx (MeshNode-mesh node))))
 
 (define-method (gl-render-scene ctx (node ShaderNode))
   (let ([shader-tag (ShaderNode-tags node 0)])
@@ -163,7 +203,7 @@ INIT_GL_CONTEXT_END
   (gl-setup-light ctx (LightNode-light node)))
 
 (define-method (gl-setup-light ctx (light PointLight))
-  (with-access ctx (GLContext light-count)
+  (with-access ctx (GLContext num-lights)
     (with-access light (PointLight ambient diffuse specular)
       ((c-lambda (int scheme-object scheme-object scheme-object) void 
 #<<c-gl-setup-light-end
@@ -229,8 +269,8 @@ glLightfv(light, GL_SPECULAR, specular);
     // glLightf(light, GL_QUADRATIC_ATTENUATION, node->quadAtt);
     glEnable(light);
 c-gl-setup-light-end
-) light-count ambient diffuse specular)
-    (set! light-count (+ 1 light-count)))))
+) num-lights ambient diffuse specular)
+    (set! num-lights (+ 1 num-lights)))))
 
 (define stack-height 
   (c-lambda () int "glGetIntegerv(GL_MAX_MODELVIEW_STACK_DEPTH, &___result);"))
@@ -332,8 +372,48 @@ glUseProgram(___arg1);
 APPLY-SHADER-END
 ))
 
+(define gl-bind-vbo
+  (c-lambda (DataBlock bool) int 
+#<<gl-bind-vbo-end
+if (___arg1) { 
 
-(c-define-type CharArray (pointer "char"))
+//create buffer
+GLuint id;
+glGenBuffers(1, &id);
+CHECK_FOR_GL_ERROR();
+
+//bind buffer
+GLint buffer_type;
+unsigned int type_size;
+if (___arg2) {
+    buffer_type = GL_ELEMENT_ARRAY_BUFFER;
+    type_size = sizeof(unsigned int);
+}
+else {
+  buffer_type = GL_ARRAY_BUFFER;
+  type_size = sizeof(float);
+}
+glBindBuffer(buffer_type, id);
+CHECK_FOR_GL_ERROR();
+
+// fill data
+unsigned int size = type_size * ___arg1->GetSize() * ___arg1->GetDimension();
+
+glBufferData(buffer_type,
+             size,
+             ___arg1->GetVoidDataPtr(),
+             GL_STATIC_DRAW);
+CHECK_FOR_GL_ERROR(); 
+
+// unbind again
+glBindBuffer(buffer_type, 0);
+CHECK_FOR_GL_ERROR();
+
+___result = id; 
+}
+else ___result = 0; // right now we simply associate a non-existent buffer with 0
+gl-bind-vbo-end
+))
 
 (define (gl-bind-texture texture)
   (with-access texture (Texture image wrapping-s wrapping-t)
@@ -361,7 +441,7 @@ APPLY-SHADER-END
                          [(error "Unsupported texture color format")])]
                   [gl-wrapping-index-s (gl-wrapping wrapping-s)]
                   [gl-wrapping-index-t (gl-wrapping wrapping-t)])
-              ((c-lambda (int int int int int CharArray) int
+              ((c-lambda (int int int int int (pointer "char")) int
 #<<gl-bind-texture-end
 const int width             = ___arg1;
 const int height            = ___arg2;
@@ -405,6 +485,49 @@ gl-bind-texture-end
   gl-wrapping-index-t c-data))))
         0)))
 
+
+(define gl-apply-mesh-vbo
+  (c-lambda (int int int int int DataBlock) void
+#<<apply-mesh-vbo-end
+
+glBindTexture(GL_TEXTURE_2D, ___arg5);
+
+glBindBuffer(GL_ARRAY_BUFFER, ___arg2);  
+glEnableClientState(GL_VERTEX_ARRAY);
+glVertexPointer(3, GL_FLOAT, 0, 0);
+CHECK_FOR_GL_ERROR();
+
+if (___arg3) {
+  glEnableClientState(GL_NORMAL_ARRAY);
+  glBindBuffer(GL_ARRAY_BUFFER, ___arg3);  
+  glNormalPointer(GL_FLOAT, 0, 0);
+  CHECK_FOR_GL_ERROR();
+}
+
+if (___arg4) {
+  glClientActiveTexture(GL_TEXTURE0); 
+  glEnableClientState(GL_TEXTURE_COORD_ARRAY); 
+  glBindBuffer(GL_ARRAY_BUFFER, ___arg4);
+  glTexCoordPointer(2, GL_FLOAT, 0, 0);
+  CHECK_FOR_GL_ERROR();
+}
+
+glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ___arg1);  
+glDrawElements(GL_TRIANGLES, ___arg6->GetSize(), GL_UNSIGNED_INT, 0);
+CHECK_FOR_GL_ERROR();
+
+glDisableClientState(GL_VERTEX_ARRAY);
+glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+glDisableClientState(GL_NORMAL_ARRAY);
+glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+glBindTexture(GL_TEXTURE_2D, 0);
+glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+apply-mesh-vbo-end
+))
+    
+
 (define gl-apply-mesh
   (c-lambda (DataBlock DataBlock DataBlock DataBlock int) void
 #<<apply-mesh-end
@@ -441,6 +564,7 @@ CHECK_FOR_GL_ERROR();
 glDisableClientState(GL_VERTEX_ARRAY);
 glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 glDisableClientState(GL_NORMAL_ARRAY);
+glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 glBindTexture(GL_TEXTURE_2D, 0);
 
 apply-mesh-end
