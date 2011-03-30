@@ -88,12 +88,12 @@
                             [(pair? l)
                              (if (pair? (car l))
                                  (let* ([p (car l)]
-                                        [time (+ (car p) dt)]
-                                        [anim (cdr p)])
+                                        [time (+ (cdr p) dt)]
+                                        [anim (car p)])
                                    (Animator-process time anim)
                                    (if (> time (Animation-duration anim))
-                                       (set-car! p 0.)
-                                       (set-car! p time))
+                                       (set-cdr! p 0.)
+                                       (set-cdr! p time))
                                    (process (cdr l) dt))
                                  (error "Invalid object in animation playlist"))]
                             [(error "Invalid animation playlist")]))])
@@ -107,7 +107,15 @@
 
 (define-generic (play animation (animator Animator))
   (with-access animator (Animator playlist)
-    (set! playlist (cons (cons 0. animation) playlist))))
+    (set! playlist (cons (cons animation 0.) playlist))))
+
+(define-generic (stop animation (animator Animator))
+  (with-access animator (Animator playlist)
+    (let ([entry (assoc animation playlist)])
+      (if entry
+          (set! playlist (remove entry playlist))))))
+
+
 
 (define-generic (Animator-process time (animation Animation))
   (error "Unsupported animation object"))
