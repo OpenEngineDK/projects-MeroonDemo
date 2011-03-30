@@ -93,7 +93,7 @@ INIT_GL_CONTEXT_END
     (visit l n)))
 
 
-(define-method (gl-render-mesh ctx (mesh AnimatedMesh))
+(define (update-animation mesh)
   (with-access mesh (AnimatedMesh 
                      indices
                      vertices
@@ -119,8 +119,13 @@ INIT_GL_CONTEXT_END
                                (Transformation-rotation 
                                 acc-transformation))
                               (BoneNode-c-weights b))))
-               bones)))
-    (call-next-method)))
+               bones)
+          #t)
+        #f)))
+
+(define-method (gl-render-mesh ctx (mesh AnimatedMesh))
+  (update-animation mesh)
+  (call-next-method))
 
 (define (fetch-texture ctx texture)
   (with-access ctx (GLContext textures)
@@ -139,21 +144,38 @@ INIT_GL_CONTEXT_END
       (let ([tid (fetch-texture ctx texture)])
         (gl-apply-mesh indices vertices normals uvs tid))))
 
-(define (fetch-vbo ctx db index?)
+(define (fetch-vbo ctx db index? usage)
   (let ([vbo-id (gl-lookup-vbo-id ctx db)])
     (if vbo-id
         vbo-id
-        (let ([vbo-id (gl-bind-vbo db index?)])
+        (let ([vbo-id (gl-make-vbo db index? usage)])
           (with-access ctx (GLContext vbos)
             (set! vbos (cons (cons db vbo-id) vbos)))
           vbo-id))))
 
+(define-method (gl-render-mesh-vbo ctx (mesh AnimatedMesh))
+  (let ([updated (update-animation mesh)])
+    
+    (with-access mesh (Mesh indices vertices normals uvs texture)
+      (let ([index-vbo (fetch-vbo ctx indices #t 0)]
+            [vertex-vbo (fetch-vbo ctx vertices #f 1)]
+            [normal-vbo (fetch-vbo ctx normals #f 1)]
+            [uv-vbo (fetch-vbo ctx uvs #f 0)]
+            [tid (fetch-texture ctx texture)])
+        (if updated
+            (begin (gl-update-vbo vertex-vbo vertices)
+                   (gl-update-vbo normal-vbo normals)))
+        (gl-apply-mesh-vbo index-vbo vertex-vbo normal-vbo uv-vbo tid indices)))))
+    
+    
+
+
 (define-method (gl-render-mesh-vbo ctx (mesh Mesh))
   (with-access mesh (Mesh indices vertices normals uvs texture)
-    (let ([index-vbo (fetch-vbo ctx indices #t)]
-          [vertex-vbo (fetch-vbo ctx vertices #f)]
-          [normal-vbo (fetch-vbo ctx normals #f)]
-          [uv-vbo (fetch-vbo ctx uvs #f)]
+    (let ([index-vbo (fetch-vbo ctx indices #t 0)]
+          [vertex-vbo (fetch-vbo ctx vertices #f 0)]
+          [normal-vbo (fetch-vbo ctx normals #f 0)]
+          [uv-vbo (fetch-vbo ctx uvs #f 0)]
           [tid (fetch-texture ctx texture)])
       (gl-apply-mesh-vbo index-vbo vertex-vbo normal-vbo uv-vbo tid indices))))
   
@@ -311,6 +333,7 @@ typedef vector<pair<unsigned int,float> > Weights;
 const GLint gl_color_formats[]          = {GL_RGB, GL_RGBA, GL_BGR, GL_BGRA};
 const GLint gl_internal_color_formats[] = {GL_RGB, GL_RGBA, GL_RGB, GL_RGBA};
 const GLint gl_wrappings[]              = {GL_CLAMP, GL_REPEAT};
+const GLint gl_buffer_usage[]           = {GL_STATIC_DRAW, GL_DYNAMIC_DRAW};
 
 c-declare-end
 )
@@ -372,8 +395,27 @@ glUseProgram(___arg1);
 APPLY-SHADER-END
 ))
 
-(define gl-bind-vbo
-  (c-lambda (DataBlock bool) int 
+(define gl-update-vbo
+  (c-lambda (int DataBlock) void
+#<<gl-update-vbo
+GLint buffer_type = GL_ARRAY_BUFFER;
+unsigned int type_size = sizeof(float);
+
+glBindBuffer(buffer_type, ___arg1);
+// fill data
+
+unsigned int size = type_size * ___arg2->GetSize() * ___arg2->GetDimension();
+
+glBufferData(buffer_type,
+             size,
+             ___arg2->GetVoidDataPtr(),
+             GL_DYNAMIC_DRAW);
+CHECK_FOR_GL_ERROR(); 
+gl-update-vbo
+))
+
+(define gl-make-vbo
+  (c-lambda (DataBlock bool int) int 
 #<<gl-bind-vbo-end
 if (___arg1) { 
 
@@ -402,7 +444,7 @@ unsigned int size = type_size * ___arg1->GetSize() * ___arg1->GetDimension();
 glBufferData(buffer_type,
              size,
              ___arg1->GetVoidDataPtr(),
-             GL_STATIC_DRAW);
+             gl_buffer_usage[___arg3]);
 CHECK_FOR_GL_ERROR(); 
 
 // unbind again
