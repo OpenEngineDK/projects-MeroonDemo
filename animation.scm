@@ -1,18 +1,3 @@
-;; a bone is essentially a transformationNode with a list of vertex weights
-(define-class BoneNode SceneParent
-  ([= offset ;; the bind pose transformation
-      :immutable
-      :initializer (lambda () (instantiate Transformation))]
-   [= transformation ;; the current transformation of this bone
-      :initializer (lambda () (instantiate Transformation))]
-   [= acc-transformation
-      :initializer (lambda () (instantiate Transformation))]
-   [= c-weights ;; c-structure containing the list of vertex x weight pairs.
-      :immutable ]
-   [= dirty  ;; dirty flag. Animator sets to true, skinner sets to false.
-      :initializer (lambda () #f)] 
-   ))
-
 ;; an animated mesh is a Mesh which contains a list of the bones that affect it.
 (define-class AnimatedMesh Mesh
   ([= bind-pose-vertices ;; the original "bind pose" mesh data 
@@ -284,14 +269,14 @@
 ;;         (call-next-method)
 ;;         (set! *bone-stack* (cdr *bone-stack*))))))
 
-(define-generic (Animator-update-bones (node Object) tos)
+(define-generic (Animator-update-bones (node Scene) tos)
   (error "Unsupported scene node"))
 
-(define-method (Animator-update-bones (node Scene) tos)
+(define-method (Animator-update-bones (node SceneLeaf) tos)
   #f)
 
-(define-method (Animator-update-bones (node SceneParent) tos)
-  (do ([children (SceneParent-children node) (cdr children)])
+(define-method (Animator-update-bones (node SceneNode) tos)
+  (do ([children (SceneNode-children node) (cdr children)])
       ((null? children))
     (Animator-update-bones (car children) tos)))
 
@@ -303,6 +288,6 @@
         (update-c-matrix! rotation)
         (update-transformation-rot-and-scl! acc-transformation)
         (update-transformation-pos! acc-transformation)
-        (do ([children (SceneParent-children node) (cdr children)])
+        (do ([children (SceneNode-children node) (cdr children)])
             ((null? children))
           (Animator-update-bones (car children) push-trans))))))

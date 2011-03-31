@@ -1,20 +1,18 @@
 (define pi 3.14159265358979323846264338328)
 
-(c-define-type FloatArray (pointer "float"))
-
 (define-class Projection Object
   ([= aspect   :immutable :initializer (lambda () (/ 4.0 3.0))]
    [= fov      :immutable :initializer (lambda () (/ pi 4.0))]
    [= near     :immutable :initializer (lambda () 3.0)]
    [= far      :immutable :initializer (lambda () 3000.0)]
    [= c-matrix :immutable 
-      :initializer (c-lambda () FloatArray
+      :initializer (c-lambda () (pointer "float")
 		     "float* m = new float[16];
 		     ___result_voidstar = m;"
 		     )]))
 
 (define (update-proj! o)
-  ((c-lambda (float float float float FloatArray) void
+  ((c-lambda (float float float float (pointer "float")) void
 #<<UPDATE_PROJECTION_END
 float aspect = ___arg1;
 float fov    = ___arg2;
@@ -56,3 +54,18 @@ UPDATE_PROJECTION_END
    (Projection-near o)
    (Projection-far o)
    (Projection-c-matrix o)))
+
+(define-class Camera Object
+  ([= proj   :mutable :initializer 
+      (lambda ()
+	(let ([p (instantiate Projection)])
+	  (update-proj! p)
+	  p))]
+   [= view   :mutable :initializer (lambda () (instantiate Transformation))]))
+
+(define-method (rotate! (cam Camera) angle vec)
+  (rotate! (Camera-view cam) angle vec))
+
+(define-method (move! (cam Camera) x y z)
+  (move! (Camera-view cam) (- x) (- y) (- z)))
+

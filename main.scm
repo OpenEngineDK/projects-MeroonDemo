@@ -43,7 +43,7 @@
 
 (define light
   (instantiate TransformationNode
-    :children (list (instantiate LightNode))))
+    :children (list (instantiate LightLeaf))))
 
 (define top
   (instantiate TransformationNode

@@ -34,18 +34,18 @@
       (display "\\n" stream))
     (display "\"]}" stream)))
   
-(define-generic (dot-visit (node Object) . stream)
+(define-generic (dot-visit (node Scene) . stream)
   (error "Unsupported scene node"))
 
-(define-method (dot-visit (node Scene) . stream)
+(define-method (dot-visit (node SceneLeaf) . stream)
   (let ([stream (if (pair? stream) (car stream) (current-output-port))]) 
     (dot-class-name node '() stream)
     (display ";\n" stream)))
   
-(define-method (dot-visit (node SceneParent) . stream)
+(define-method (dot-visit (node SceneNode) . stream)
   (let ([stream (if (pair? stream) (car stream) (current-output-port))])
     (dot-class-name node '() stream)
-    (with-access node (SceneParent children)
+    (with-access node (SceneNode children)
       (if (> (length children) 0)
           (begin
             (display " -> { " stream)
@@ -55,13 +55,13 @@
                  children)
             (display "} " stream)))
       (display ";\n" stream))
-    (do ([children (SceneParent-children node) (cdr children)])
+    (do ([children (SceneNode-children node) (cdr children)])
         ((null? children))
       (dot-visit (car children) stream))))
 
-(define-method (dot-visit (node MeshNode) . stream)
+(define-method (dot-visit (node MeshLeaf) . stream)
   (let ([stream (if (pair? stream) (car stream) (current-output-port))]) 
-    (let ([mesh (MeshNode-mesh node)])
+    (let ([mesh (MeshLeaf-mesh node)])
       (dot-class-name node (list (Class-name (object->class mesh))) stream)
       (if (AnimatedMesh? mesh)
           (begin 

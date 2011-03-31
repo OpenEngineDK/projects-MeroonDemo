@@ -16,11 +16,13 @@ GAMBIT_ADD_EXECUTABLE(MeroonDemo Scheme_Ext
   quaternion.scm
   queue.scm
   transformation.scm
-  projection.scm
+  camera.scm
   datablock.scm
   texture.scm
   modules.scm
-  objects.scm
+  canvas.scm
+  geometry.scm
+  scene.scm
   render.scm
   keymap.scm
   animation.scm

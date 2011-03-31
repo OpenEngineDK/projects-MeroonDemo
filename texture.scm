@@ -12,18 +12,18 @@ c-declare-end
 "ResourceManager<ITexture2D>::AddPlugin(new FreeImagePlugin());"
 ))
 
-;; --- Bitmap ---
-(define-class Bitmap Object
+;; --- Image ---
+(define-class Image Object
   ([= width  :immutable]
    [= height :immutable]
    [= format :immutable]
-   [= c-data :immutable :initializer (c-lambda () (pointer char) "___result_voidstar = NULL;")]))
+   [= c-data :immutable]))
 
-(define-method (initialize! (o Bitmap))
+(define-method (initialize! (o Image))
   ;; free the c-matrix when object is reclaimed by the gc.
   (make-will o (lambda (x) 
    		 ;; (display "delete array\n")
-		 (with-access x (Bitmap c-data)
+		 (with-access x (Image c-data)
 	           ((c-lambda ((pointer char)) void
 		      "if (___arg1) delete[] ___arg1;")
 		   c-data))))
@@ -33,7 +33,7 @@ c-declare-end
 
 (c-define (set-bitmap width height format data)
     (int int char-string (pointer char)) void "set_bitmap_scm" ""
-    (set! *loaded-bitmap* (instantiate Bitmap 
+    (set! *loaded-bitmap* (instantiate Image 
                               :width width 
                               :height height 
                               :format (string->symbol format) 

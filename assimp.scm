@@ -263,7 +263,7 @@ c-declare-end
                                         :translation *transformation-pos*
                                         :rotation *transformation-rot*
                                         :scaling *transformation-scale*))))
-      (with-access (car *scene-parent-stack*) (SceneParent children)
+      (with-access (car *scene-parent-stack*) (SceneNode children)
         (set! children (cons node children)))
       (set! *scene-parent-stack* (cons node *scene-parent-stack*))
       (set! *loaded-transformations* (cons node *loaded-transformations*))
@@ -282,7 +282,7 @@ c-declare-end
                   :translation *transformation-pos*
                   :rotation *transformation-rot*
                   :scaling *transformation-scale*)))
-      (with-access (car *scene-parent-stack*) (SceneParent children)
+      (with-access (car *scene-parent-stack*) (SceneNode children)
 		   (set! children (cons node children)))
       (set! *scene-parent-stack* (cons node *scene-parent-stack*))))
 
@@ -292,10 +292,10 @@ c-declare-end
 
 (c-define (append-mesh-node i)
     (int) void "append_mesh_node_scm" ""
-    (with-access (car *scene-parent-stack*) (SceneParent children)
+    (with-access (car *scene-parent-stack*) (SceneNode children)
 		 (set! children 
 		       (cons 
-                        (instantiate MeshNode 
+                        (instantiate MeshLeaf 
                             :mesh (list-ref *loaded-meshes* i))
                         children))))
 
@@ -341,7 +341,7 @@ c-load-scene-end
 ))
 
 (define (load-scene path)
-  (set! *scene-root* (instantiate SceneParent))
+  (set! *scene-root* (instantiate SceneNode))
   (set! *scene-parent-stack* (list *scene-root*))
   (set! *current-file-dir* (->file-dir path))
   (set! *loaded-blocks* '())

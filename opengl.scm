@@ -53,27 +53,27 @@ INIT_GL_CONTEXT_END
 
 
 ;; Scene rendering
-(define-generic (gl-render-scene ctx (node Object))
+(define-generic (gl-render-scene ctx (node Scene))
   (error "Unsupported scene node"))
 
-(define-method (gl-render-scene ctx (node Scene))
+(define-method (gl-render-scene ctx (node SceneLeaf))
   #f)
 
-(define-method (gl-render-scene ctx (node SceneParent))
-  (do ([children (SceneParent-children node) (cdr children)])
+(define-method (gl-render-scene ctx (node SceneNode))
+  (do ([children (SceneNode-children node) (cdr children)])
       ((null? children))
     (gl-render-scene ctx (car children))))
 
 (define-method (gl-render-scene ctx (node TransformationNode))
   (gl-push-transformation (TransformationNode-transformation node))
-  (call-next-method) ;; i.e., on SceneParent
+  (call-next-method) ;; i.e., on SceneNode
   (gl-pop-transformation))
 
 ;; render bones
 (define-method (gl-render-scene ctx (node BoneNode))
  #f)
   ;; (gl-push-transformation (BoneNode-transformation node))
-  ;; (call-next-method) ;; i.e., on SceneParent
+  ;; (call-next-method) ;; i.e., on SceneNode
   ;; (gl-pop-transformation))
 
 
@@ -180,10 +180,10 @@ INIT_GL_CONTEXT_END
           [tid (fetch-texture ctx texture)])
       (gl-apply-mesh-vbo index-vbo vertex-vbo normal-vbo uv-vbo tid indices))))
   
-(define-method (gl-render-scene ctx (node MeshNode))
+(define-method (gl-render-scene ctx (node MeshLeaf))
   (if (GLContext-vbo? ctx)
-      (gl-render-mesh-vbo ctx (MeshNode-mesh node))
-      (gl-render-mesh ctx (MeshNode-mesh node))))
+      (gl-render-mesh-vbo ctx (MeshLeaf-mesh node))
+      (gl-render-mesh ctx (MeshLeaf-mesh node))))
 
 (define-method (gl-render-scene ctx (node ShaderNode))
   (let ([shader-tag (ShaderNode-tags node 0)])
@@ -209,21 +209,21 @@ INIT_GL_CONTEXT_END
 (define-generic (gl-setup-light ctx (light Light))
   (error "Unsupported scene node"))
 
-(define-method (gl-setup-lights ctx (node SceneParent))
-  (do ([children (SceneParent-children node) (cdr children)])
+(define-method (gl-setup-lights ctx (node SceneNode))
+  (do ([children (SceneNode-children node) (cdr children)])
       ((null? children))
     (gl-setup-lights ctx (car children))))
 
 (define-method (gl-setup-lights ctx (node TransformationNode))
   (gl-push-transformation (TransformationNode-transformation node))
-  (call-next-method) ;; i.e., on SceneParent
+  (call-next-method) ;; i.e., on SceneNode
   (gl-pop-transformation))
 
 (define-method (gl-setup-lights ctx (node Scene))
   #f)
 
-(define-method (gl-setup-lights ctx (node LightNode))
-  (gl-setup-light ctx (LightNode-light node)))
+(define-method (gl-setup-lights ctx (node LightLeaf))
+  (gl-setup-light ctx (LightLeaf-light node)))
 
 (define-method (gl-setup-light ctx (light PointLight))
   (with-access ctx (GLContext num-lights)
@@ -461,7 +461,7 @@ gl-bind-vbo-end
 (define (gl-make-texture texture)
   (with-access texture (Texture image wrapping-s wrapping-t)
     (if image
-        (with-access image (Bitmap width height format c-data)
+        (with-access image (Image width height format c-data)
           (newline)
           (let ([gl-wrapping 
                  (lambda (wrapping) 

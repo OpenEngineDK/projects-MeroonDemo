@@ -219,3 +219,39 @@ UPDATE_TRANSFORMATION_ROT_AND_SCL_END
       (display ") rotation(" stream)
       (show rotation stream)
       (display ")>" stream))))
+
+
+;; define generic operations on transformations or anyting containing a transformation.
+(define-generic (rotate! (o) angle vec)
+  (error (string-append "Object of type "
+                        (->Class (object->class o))
+                        " can not be rotated")))
+
+
+
+
+(define-generic (move! (o) x y z)
+  (error (string-append "Object of type "
+                        (->Class (object->class o))
+                        " is not movable")))
+
+(define-generic (scale! (o) x y z)
+  (error (string-append "Object of type "
+                        (->Class (object->class o))
+                        " is not scalable")))
+
+(define (uniform-scale! o s) 
+  (scale! o s s s))
+
+(define-method (rotate! (o Transformation) angle vec)
+  (Transformation-rotate o angle vec)
+  (update-transformation-rot-and-scl! o))
+
+(define-method (move! (o Transformation) x y z)
+  (Transformation-translate o x y z)
+  (update-transformation-pos! o))
+
+(define-method (scale! (o Transformation) x y z)
+  (Transformation-scale o x y z)
+  (update-transformation-rot-and-scl! o))
+
