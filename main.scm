@@ -59,6 +59,7 @@
 
 (define modules
   (make-modules
+   (make-boids-module (TransformationNode-transformation finn) (car *animations*) animator)
    (make-animator-module animator top) ;; give the animation subsystem processing time
    (make-rotator dragon (* pi .5) (vector 0.0 1.0 0.0))
    ;; move light up and down
@@ -112,16 +113,16 @@
 
 
 ;; setup some fishy animation demo
-(if sharky-model
-    (begin
-      (scene-add-node! top sharky-model)
-      (move! dragon 0. 100 0.)
-      (play (cadr *animations*) animator)))
+;; (if sharky-model
+;;     (begin
+;;       (scene-add-node! top sharky-model)
+;;       (move! dragon 0. 100 0.)
+;;       (play (cadr *animations*) animator)))
 
 (if finn-model
     (begin
       (scene-add-node! top finn)
-      (move! finn 0. 0. 350.)
+      (move! finn 27. 0. 300.)
       (play (car *animations*) animator)))
 
 (let* ([can   (instantiate Canvas3D

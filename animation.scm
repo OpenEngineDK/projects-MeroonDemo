@@ -58,6 +58,11 @@
       :immutable]
    ))
 
+(define-class PlayInfo Object
+  ([= time :initializer (lambda () 0.0)]
+   [= speed :initializer (lambda () 1.0)]
+))
+
 (define-class Animator Object
   ([= playlist 
       :initializer list]   
@@ -73,15 +78,17 @@
                             [(pair? l)
                              (if (pair? (car l))
                                  (let* ([p (car l)]
-                                        [time (+ (cdr p) dt)]
-                                        [anim (car p)])
-                                   (Animator-process time anim)
+                                        [anim (car p)]
+                                        [info (cdr p)])
+                                   (with-access info (PlayInfo time speed)
+                                     (set! time (+ time (* dt speed)))
+                                     (Animator-process time anim)
                                    (if (> time (Animation-duration anim))
-                                       (set-cdr! p 0.)
-                                       (set-cdr! p time))
+                                       (set! time 0.)))
+                                       ;; (set-cdr! p time)))
                                    (process (cdr l) dt))
                                  (error "Invalid object in animation playlist"))]
-                            [(error "Invalid animation playlist")]))])
+                            [else (error "Invalid animation playlist")]))])
         (lambda (dt) 
           ;; optimize by mutating list instead of generating new
           (if (pair? playlist)
@@ -92,15 +99,20 @@
 
 (define-generic (play animation (animator Animator))
   (with-access animator (Animator playlist)
-    (set! playlist (cons (cons animation 0.) playlist))))
+    (set! playlist (cons (cons animation (instantiate PlayInfo)) playlist))))
+
+(define-generic (play-speed-set! play-speed animation (animator Animator))
+  (with-access animator (Animator playlist)
+    (let ([entry (assoc animation playlist)])
+      (if entry
+          (with-access (cdr entry) (PlayInfo speed)
+            (set! speed play-speed))))))
 
 (define-generic (stop animation (animator Animator))
   (with-access animator (Animator playlist)
     (let ([entry (assoc animation playlist)])
       (if entry
           (set! playlist (remove entry playlist))))))
-
-
 
 (define-generic (Animator-process time (animation Animation))
   (error "Unsupported animation object"))
@@ -172,13 +184,6 @@
     (vector (+ x (* scale (- (vector-ref v2 0) x)))
             (+ y (* scale (- (vector-ref v2 1) y)))
             (+ z (* scale (- (vector-ref v2 2) z))))))
-
-(define (quaternion-interp q1 q2 scale)
-  (instantiate Quaternion 
-      :w (+ (* (- 1.0 scale) (Quaternion-w q1)) (* scale (Quaternion-w q2)))
-      :x (+ (* (- 1.0 scale) (Quaternion-x q1)) (* scale (Quaternion-x q2)))
-      :y (+ (* (- 1.0 scale) (Quaternion-y q1)) (* scale (Quaternion-y q2)))
-      :z (+ (* (- 1.0 scale) (Quaternion-z q1)) (* scale (Quaternion-z q2)))))
 
 
 ;; update transformation helper

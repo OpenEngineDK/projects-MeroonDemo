@@ -63,3 +63,38 @@
            (do ([i 0 (fx+ 1 i)])
                ((fx= i len) res)
              (vector-set! res i (apply f (args i rvecs '()))))))])))
+
+(define (vector-cross v1 v2)
+  (vector (- (* (vector-ref v1 1) (vector-ref v2 2)) (* (vector-ref v1 2) (vector-ref v2 1)))
+          (- (* (vector-ref v1 2) (vector-ref v2 0)) (* (vector-ref v1 0) (vector-ref v2 2)))
+          (- (* (vector-ref v1 0) (vector-ref v2 1)) (* (vector-ref v1 1) (vector-ref v2 0)))))
+
+(define (vector-norm v)
+  (let ([x (vector-ref v 0)]
+        [y (vector-ref v 1)]
+        [z (vector-ref v 2)])
+    (sqrt (+ (* x x) (* y y) (* z z)))))
+
+(define (vector-normalize v)
+  (let ([norm (vector-norm v)])
+    (vector (/ (vector-ref v 0) norm)
+            (/ (vector-ref v 1) norm)
+            (/ (vector-ref v 2) norm))))
+
+(define (vector+ v1 v2)
+  (vector (+ (vector-ref v1 0) (vector-ref v2 0))
+             (+ (vector-ref v1 1) (vector-ref v2 1))
+             (+ (vector-ref v1 2) (vector-ref v2 2))))
+
+(define (vector- v1 v2)
+  (vector (- (vector-ref v1 0) (vector-ref v2 0))
+             (- (vector-ref v1 1) (vector-ref v2 1))
+             (- (vector-ref v1 2) (vector-ref v2 2))))
+  
+
+(define (vector-scalar* s v)
+  (vector (* s (vector-ref v 0))
+             (* s (vector-ref v 1))
+             (* s (vector-ref v 2))))
+
+

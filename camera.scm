@@ -1,5 +1,8 @@
 (define pi 3.14159265358979323846264338328)
 
+;; Parameterized projection matrix
+;; Use update-proj! to update the underlying c-matrix representation 
+;; note: This is a temporary hack!
 (define-class Projection Object
   ([= aspect   :immutable :initializer (lambda () (/ 4.0 3.0))]
    [= fov      :immutable :initializer (lambda () (/ pi 4.0))]
@@ -10,6 +13,17 @@
 		     "float* m = new float[16];
 		     ___result_voidstar = m;"
 		     )]))
+
+
+(define-method (initialize! (o Projection))
+  ;; free the c-matrix when object is reclaimed by the gc.
+  (update-proj! o)
+  (make-will o (lambda (x) 
+		 (with-access x (Projection c-matrix)
+	           ((c-lambda ((pointer float)) void
+		      "delete[] ___arg1;")
+                    c-matrix))))
+  (call-next-method))
 
 (define (update-proj! o)
   ((c-lambda (float float float float (pointer "float")) void
@@ -55,16 +69,24 @@ UPDATE_PROJECTION_END
    (Projection-far o)
    (Projection-c-matrix o)))
 
+;; Camera abstraction
+;; A camera is simply a projection transformation combined with a
+;; coordinate space transformation.
+
+;; Note that a camera transformation matrix behaves like an inverse
+;; scene transformation matrix, since it transforms from world
+;; space to camera space. 
+
+;; Currently this is handled (hackishly) by letting move! and rotate!
+;; do inverse operations. This hack easily goes away when the c-matrix
+;; is pulled out of the transformation abstraction.
+
 (define-class Camera Object
-  ([= proj   :mutable :initializer 
-      (lambda ()
-	(let ([p (instantiate Projection)])
-	  (update-proj! p)
-	  p))]
-   [= view   :mutable :initializer (lambda () (instantiate Transformation))]))
+  ([= proj :initializer (lambda () (instantiate Projection))]
+   [= view :initializer (lambda () (instantiate Transformation))]))
 
 (define-method (rotate! (cam Camera) angle vec)
-  (rotate! (Camera-view cam) angle vec))
+  (rotate! (Camera-view cam) (- angle) vec))
 
 (define-method (move! (cam Camera) x y z)
   (move! (Camera-view cam) (- x) (- y) (- z)))
