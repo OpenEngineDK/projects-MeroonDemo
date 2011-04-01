@@ -14,7 +14,7 @@ Contents:
    intro-meroon
    intro-gambit
    scene
-
+   features-and-files
 
 Installing and building the documentation
 -----------------------------------------
