@@ -23,6 +23,7 @@ GAMBIT_ADD_EXECUTABLE(MeroonDemo Scheme_Stuff
   transformation.scm
   camera.scm
   texture.scm
+  OpenGLShader.scm
   modules.scm
   canvas.scm
   geometry.scm
