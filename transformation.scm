@@ -4,6 +4,22 @@
 c-declare-end
 )
 
+;; The Transformation object describes a coordinate transformation in
+;; 3-dimensional space.  This is done by means of a translation
+;; vector, a scaling vector, a rotation quaternion, and a pivot
+;; vector.
+
+;; The pivot vector is used together with the rotation quaternion to
+;; determine the point of rotation. A rotation without a pivot point
+;; operates around the local origo.
+
+;; The four components are used to construct a 4x4 matrix describing
+;; the combined transformation.
+
+;; Right now the matrix is stored in the transformation object itself,
+;; and updated explicitly by means of destructive update-methods. This
+;; hack will soon be removed and the matrix construction moved to the
+;; right place (like the opengl renderer).
 (define-class Transformation Object
   ([= translation 
       :initializer (lambda () (make-vector 3 0.0))]
@@ -34,11 +50,13 @@ c-declare-end
                     c-matrix))))
   (call-next-method))
 
+;; here follows the hackish 4x4 c-matrix generation.
 (define c-update-transformation-pivot!
   (c-lambda (scheme-object scheme-object scheme-object (pointer float) (pointer float)) void
 #<<UPDATE_TRANSFORMATION_PIVOT_END
 // printf("pivot\n");
 
+// extract scheme objects from scheme vectors
 const ___SCMOBJ scm_x  = ___VECTORREF(___arg1, 0);
 const ___SCMOBJ scm_y  = ___VECTORREF(___arg1, 4);
 const ___SCMOBJ scm_z  = ___VECTORREF(___arg1, 8);
@@ -59,6 +77,7 @@ float sx;
 float sy;
 float sz;
 
+// convert extracted scheme objects to floats
 ___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_x, x, 9);
 ___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_y, y, 9);
 ___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_z, z, 9);
@@ -178,7 +197,6 @@ UPDATE_TRANSFORMATION_ROT_AND_SCL_END
 
 (define (update-transformation-rot-and-scl! o)
   (with-access o (Transformation translation scaling rotation pivot c-matrix)
-    (normalize! rotation)
     (update-c-matrix! rotation)
     (c-update-transformation-rot-and-scl!
      (vector-ref scaling 0)
@@ -195,7 +213,6 @@ UPDATE_TRANSFORMATION_ROT_AND_SCL_END
          c-matrix))))
 
 ;;; methods
-
 (define-generic (Transformation-translate (o Transformation) x y z)
   (with-access o (Transformation translation)
     (set! translation (vector-map + translation (vector x y z)))))
@@ -254,4 +271,3 @@ UPDATE_TRANSFORMATION_ROT_AND_SCL_END
 (define-method (scale! (o Transformation) x y z)
   (Transformation-scale o x y z)
   (update-transformation-rot-and-scl! o))
-

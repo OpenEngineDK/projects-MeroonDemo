@@ -1,19 +1,26 @@
+;; scene base class. Generic methods should report error on this type.
 (define-class Scene Object 
   ([= name :initializer (lambda () #f)]
    [= info :initializer (lambda () #f)]))
 
+;; All scene nodes must descend from this class.
+;; Methods can take default action for all nodes on this type.
 (define-class SceneNode Scene
   ([= children :mutable
       :initializer list]))
 
+;; All leafs must descend from this class
+;; Methods can take default action for all leafs on this type.
 (define-class SceneLeaf Scene
 ())
 
+;; A TransformationNode defines a local coordinate system for its subtree.
+;; (... or a transformation node translates, rotates, and scales its subtree).
 (define-class TransformationNode SceneNode
   ([= transformation
       :initializer (lambda () (instantiate Transformation))]))
 
-;; a BoneNode is essentially a TransformationNode with a list of vertex weights
+;; A BoneNode is essentially a TransformationNode with a list of vertex weights
 (define-class BoneNode SceneNode
   ([= offset ;; the bind pose transformation
       :immutable
@@ -31,12 +38,15 @@
 (define-class ShaderNode SceneNode ;; Effect
   ([* tags :immutable]))
 
+;; A Leaf containing geometry
 (define-class MeshLeaf SceneLeaf
   ([= mesh ]))
 
+;; A Leaf containing a light source
 (define-class LightLeaf SceneLeaf
   ([= light :immutable :initializer (lambda () (instantiate PointLight))]))
 
+;; generic operations on a scene
 (define-generic (scene-add-node! (node SceneNode) (child Scene))
   (with-access node (SceneNode children)
     (set! children (cons child children))))
