@@ -11,20 +11,23 @@ GAMBIT_ADD_LIBRARY(Scheme_Ext GAMBIT_MEROON
   vector.scm
 )
 
-## project
-GAMBIT_ADD_EXECUTABLE(MeroonDemo Scheme_Ext
-  quaternion.scm
+GAMBIT_ADD_LIBRARY(Scheme_Stuff Scheme_Ext
   queue.scm
+  datablock.scm
+  keymap.scm
+)
+
+## project
+GAMBIT_ADD_EXECUTABLE(MeroonDemo Scheme_Stuff
+  quaternion.scm
   transformation.scm
   camera.scm
-  datablock.scm
   texture.scm
   modules.scm
   canvas.scm
   geometry.scm
   scene.scm
   render.scm
-  keymap.scm
   animation.scm
   assimp.scm
   opengl.scm
