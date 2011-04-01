@@ -12,22 +12,22 @@
           (cohersion-rule translation boid center-point)
           (random-dir-rule translation boid)
 
-          (set! velocity (vector-scalar* 0.999  (vector+ velocity (vector-scalar* (* 0.5 dt dt) accel))))
+          (set! velocity (vector-scalar* 0.98 (vector+ velocity (vector-scalar* (* 0.5 dt dt) accel))))
           (set! translation (vector+ translation (vector-scalar* dt velocity)))
           
           (let ([speed (vector-norm velocity)])
             ;; (display "play speed: ")
             ;; (display (* speed .09))
             ;; (newline)
-            (play-speed-set! (* speed .09) animation animator) 
-            (if (> speed 0.1)
+            (play-speed-set! (* speed .1) animation animator) 
+            (if (> speed 1.0)
                 (let* ([x (vector-normalize velocity)]
                        [z (vector-normalize (vector-cross x (vector 0. 1. 0.)))]
                        [y (vector-normalize (vector-cross z x))])
                   (set! rotation (quaternion-interp 
                                   rotation 
                                   (make-quaternion-from-direction x y)
-                                  (* 0.2 speed dt)))))
+                                  (* 0.1 speed dt)))))
             (update-transformation-rot-and-scl! transformation)
             (update-transformation-pos! transformation)
             ))))))
@@ -37,7 +37,7 @@
     (set! accel (vector+ 
                  accel 
                  (vector-scalar* 
-                  55.0 
+                  50.0 
                   (vector- 
                    center-point 
                    pos))))))
@@ -45,13 +45,16 @@
 
 (define (random-dir-rule pos boid)
   (with-access boid (Boid velocity)
-    (set! velocity (vector+ 
-                 velocity
-                 (vector-scalar* 
-                 0.5
+    (let ([dir (vector-scalar* 
+                 1.5
                  (vector
-                   (- (* 2. (random-real)) 1.)
-                   (- (* 2. (random-real)) 1.)
-                   (- (* 2. (random-real)) 1.)))))))
+                  (- (* 2. (random-real)) 1.)
+                  (- (* 2. (random-real)) 1.)
+                  (- (* 2. (random-real)) 1.)))])
+      (if (> (vector-dot dir velocity) .1)
+          (set! velocity (vector+ 
+                          velocity
+                          dir
+                          ))))))
 
 

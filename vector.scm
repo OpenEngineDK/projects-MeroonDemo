@@ -64,6 +64,12 @@
                ((fx= i len) res)
              (vector-set! res i (apply f (args i rvecs '()))))))])))
 
+
+(define (vector-dot v1 v2)
+  (+ (* (vector-ref v1 0) (vector-ref v2 0))
+     (* (vector-ref v1 1) (vector-ref v2 1))
+     (* (vector-ref v1 2) (vector-ref v2 2))))
+
 (define (vector-cross v1 v2)
   (vector (- (* (vector-ref v1 1) (vector-ref v2 2)) (* (vector-ref v1 2) (vector-ref v2 1)))
           (- (* (vector-ref v1 2) (vector-ref v2 0)) (* (vector-ref v1 0) (vector-ref v2 2)))

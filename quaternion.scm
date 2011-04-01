@@ -241,11 +241,13 @@ UPDATE_C_MATRIX_END
         (* (Quaternion-w q2) (Quaternion-z q1)))))
 
 (define (quaternion-interp q1 q2 scale)
-  (instantiate Quaternion 
-      :w (+ (* (- 1.0 scale) (Quaternion-w q1)) (* scale (Quaternion-w q2)))
-      :x (+ (* (- 1.0 scale) (Quaternion-x q1)) (* scale (Quaternion-x q2)))
-      :y (+ (* (- 1.0 scale) (Quaternion-y q1)) (* scale (Quaternion-y q2)))
-      :z (+ (* (- 1.0 scale) (Quaternion-z q1)) (* scale (Quaternion-z q2)))))
+  (let ([q (instantiate Quaternion
+              :w (+ (* (- 1.0 scale) (Quaternion-w q1)) (* scale (Quaternion-w q2)))
+              :x (+ (* (- 1.0 scale) (Quaternion-x q1)) (* scale (Quaternion-x q2)))
+              :y (+ (* (- 1.0 scale) (Quaternion-y q1)) (* scale (Quaternion-y q2)))
+              :z (+ (* (- 1.0 scale) (Quaternion-z q1)) (* scale (Quaternion-z q2))))])
+    (normalize! q)
+    q))
 
 (define-method (show (o Quaternion) . stream)
   (let ([stream (if (pair? stream) (car stream) (current-output-port))])

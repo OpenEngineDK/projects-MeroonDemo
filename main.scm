@@ -59,7 +59,6 @@
 
 (define modules
   (make-modules
-   (make-boids-module (TransformationNode-transformation finn) (car *animations*) animator)
    (make-animator-module animator top) ;; give the animation subsystem processing time
    (make-rotator dragon (* pi .5) (vector 0.0 1.0 0.0))
    ;; move light up and down
@@ -121,6 +120,7 @@
 
 (if finn-model
     (begin
+      (set! modules (cons (make-boids-module (TransformationNode-transformation finn) (car *animations*) animator) modules))
       (scene-add-node! top finn)
       (move! finn 27. 0. 300.)
       (play (car *animations*) animator)))
