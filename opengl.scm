@@ -21,9 +21,9 @@
     [else #f]))
 
 (define-method (initialize-context! (ctx GLContext))
-  (with-access ctx (GLContext vbo?)
+  (with-access ctx (GLContext vbo? fbo?)
     (set! vbo? ((c-lambda () bool "___result = glewIsSupported(\"GL_VERSION_2_0\");")))
-    (set! fbo? ((c-lambda () bool "___result = (glewGetExtension(\"GL_EXT_framebuffer_object\") == GL_TRUE);"))))  
+    (set! fbo? ((c-lambda () bool "___result = (glewGetExtension(\"GL_EXT_framebuffer_object\") == GL_TRUE);"))))
   ((c-lambda () void #<<INIT_GL_CONTEXT_END
 
 // todo: set these gl state parameters once in an inititialization phase.
