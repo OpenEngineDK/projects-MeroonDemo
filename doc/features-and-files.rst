@@ -9,11 +9,6 @@ are distributed across the various scheme source files.
 Basic Structures
 ----------------
 
-The most important part of the engine is the internal data structures
-used to represent the scene and in general the structures required for
-rendering, and the design choices greatly affects modularity and
-performance.
-
 OpenEngine currently has early representations of a scene graph, as
 well as structures to represent cameras, geometry, and animations. The
 overall design philosophy (so far) is to represent as many structures
