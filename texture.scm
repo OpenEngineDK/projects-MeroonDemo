@@ -1,14 +1,12 @@
 (c-declare #<<c-declare-end
 #include <Resources/Texture2D.h>
 #include <Resources/ResourceManager.h>
-//#include <Resources/SDLImage.h>
 #include <Resources/FreeImage.h>
 using namespace OpenEngine::Resources;
 c-declare-end
 )
 
 ((c-lambda () void
-;;"ResourceManager<ITexture2D>::AddPlugin(new SDLImagePlugin());"
 "ResourceManager<ITexture2D>::AddPlugin(new FreeImagePlugin());"
 ))
 

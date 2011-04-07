@@ -81,7 +81,6 @@ get-time-end
                      (+ (vector-ref from-pos 2) (* factor (- (vector-ref to-pos 2) (vector-ref from-pos 2))))))
 
               (set! rotation 
-                    ;;(slerp from-rot to-rot factor))
                     (instantiate Quaternion 
                         ;; try linear interpolation
                         :w (+ (* (- 1.0 factor) (Quaternion-w from-rot)) (* factor (Quaternion-w to-rot)))
@@ -89,5 +88,4 @@ get-time-end
                         :y (+ (* (- 1.0 factor) (Quaternion-y from-rot)) (* factor (Quaternion-y to-rot)))
                         :z (+ (* (- 1.0 factor) (Quaternion-z from-rot)) (* factor (Quaternion-z to-rot)))))
               (normalize! rotation))
-            (update-transformation-pos! target)  
-            (update-transformation-rot-and-scl! target))))))
+)))))

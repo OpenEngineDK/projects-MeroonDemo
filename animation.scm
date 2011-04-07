@@ -85,7 +85,6 @@
                                      (Animator-process time anim)
                                    (if (> time (Animation-duration anim))
                                        (set! time 0.)))
-                                       ;; (set-cdr! p time)))
                                    (process (cdr l) dt))
                                  (error "Invalid object in animation playlist"))]
                             [else (error "Invalid animation playlist")]))])
@@ -200,9 +199,7 @@
                    (cdr second) 
                    (/ (- time (car first)) ;; time-scale
                       (- (car second) 
-                         (car first)))))
-            (update-c-matrix! rotation))
-          (update-transformation-rot-and-scl! transformation))
+                         (car first)))))))
       (if p
           (let ([first (car p)]
                 [second (cdr p)])
@@ -212,8 +209,7 @@
                    (cdr second) ;; to-pos
                    (/ (- time (car first)) ;; time-scale
                       (- (car second) 
-                         (car first)))))
-            (update-transformation-pos! transformation))))))
+                         (car first))))))))))
 
 
 (define-method (Animator-process time (animation TransformationAnimation))
@@ -290,9 +286,6 @@
     (let ([push-trans (compose-trans tos transformation)])
       (compose-trans! push-trans offset acc-transformation)
       (with-access acc-transformation (Transformation translation rotation)
-        (update-c-matrix! rotation)
-        (update-transformation-rot-and-scl! acc-transformation)
-        (update-transformation-pos! acc-transformation)
         (do ([children (SceneNode-children node) (cdr children)])
             ((null? children))
           (Animator-update-bones (car children) push-trans))))))

@@ -28,8 +28,6 @@
                                   rotation 
                                   (make-quaternion-from-direction x y)
                                   (* 0.1 speed dt)))))
-            (update-transformation-rot-and-scl! transformation)
-            (update-transformation-pos! transformation)
             ))))))
 
 (define (cohersion-rule pos boid center-point)

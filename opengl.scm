@@ -44,8 +44,8 @@ INIT_GL_CONTEXT_END
 (define-method (render! (ctx GLContext) (can Canvas3D))
   (gl-clear) ;; might not want to clear here...
   (gl-viewport (Canvas-width can) (Canvas-height can))
-  (gl-viewing-volume (Projection-c-matrix (Camera-proj (Canvas3D-camera can)))
-		     (Transformation-c-matrix (Camera-view (Canvas3D-camera can))))
+  (set-gl-matrix! (Camera-view (Canvas3D-camera can)))
+  (gl-viewing-volume (Projection-c-matrix (Camera-proj (Canvas3D-camera can))))
   (with-access ctx (GLContext num-lights)
     (set! num-lights 0))
   (gl-setup-lights ctx (Canvas3D-scene can))
@@ -111,14 +111,12 @@ INIT_GL_CONTEXT_END
           (map (lambda (b) 
                  (with-access b (BoneNode acc-transformation dirty)
                    (set! dirty #f)
+                   (set-gl-matrix! acc-transformation)
+                   (set-gl-rotation-matrix! acc-transformation)
                    (skin-mesh bind-pose-vertices
                               bind-pose-normals
                               vertices
                               normals
-                              (Transformation-c-matrix acc-transformation)
-                              (Quaternion-c-matrix ;; use matrix from quaternion to rotate normals
-                               (Transformation-rotation 
-                                acc-transformation))
                               (BoneNode-c-weights b))))
                bones)
           #t)
@@ -138,7 +136,6 @@ INIT_GL_CONTEXT_END
               (set! textures (cons (cons texture tid) textures))
               tid)))
         0)))
-
 
 (define-method (gl-render-mesh ctx (mesh Mesh))
   (with-access mesh (Mesh indices vertices normals uvs texture)
@@ -167,9 +164,6 @@ INIT_GL_CONTEXT_END
             (begin (gl-update-vbo vertex-vbo vertices)
                    (gl-update-vbo normal-vbo normals)))
         (gl-apply-mesh-vbo index-vbo vertex-vbo normal-vbo uv-vbo tid indices)))))
-    
-    
-
 
 (define-method (gl-render-mesh-vbo ctx (mesh Mesh))
   (with-access mesh (Mesh indices vertices normals uvs texture)
@@ -287,13 +281,13 @@ glLightfv(light, GL_AMBIENT, ambient);
 glLightfv(light, GL_DIFFUSE, diffuse);
 glLightfv(light, GL_SPECULAR, specular);
 
-    // glLightf(light, GL_CONSTANT_ATTENUATION, node->constAtt);
-    // glLightf(light, GL_LINEAR_ATTENUATION, node->linearAtt);
-    // glLightf(light, GL_QUADRATIC_ATTENUATION, node->quadAtt);
-    glEnable(light);
+// glLightf(light, GL_CONSTANT_ATTENUATION, node->constAtt);
+// glLightf(light, GL_LINEAR_ATTENUATION, node->linearAtt);
+// glLightf(light, GL_QUADRATIC_ATTENUATION, node->quadAtt);
+glEnable(light);
 c-gl-setup-light-end
 ) num-lights ambient diffuse specular)
-    (set! num-lights (+ 1 num-lights)))))
+      (set! num-lights (+ 1 num-lights)))))
 
 (define stack-height 
   (c-lambda () int "glGetIntegerv(GL_MAX_MODELVIEW_STACK_DEPTH, &___result);"))
@@ -336,6 +330,15 @@ const GLint gl_internal_color_formats[] = {GL_RGB, GL_RGBA, GL_RGB, GL_RGBA};
 const GLint gl_wrappings[]              = {GL_CLAMP, GL_REPEAT};
 const GLint gl_buffer_usage[]           = {GL_STATIC_DRAW, GL_DYNAMIC_DRAW};
 
+float m[16] = {1.0, 0.0, 0.0, 0.0,
+               0.0, 1.0, 0.0, 0.0,
+               0.0, 0.0, 1.0, 0.0,
+               0.0, 0.0, 0.0, 1.0};
+
+float m_rot[9] = {1.0, 0.0, 0.0,
+                  0.0, 1.0, 0.0,
+                  0.0, 0.0, 1.0};
+
 c-declare-end
 )
 
@@ -348,7 +351,6 @@ GLint compiled;
 GLuint vid = glCreateShader(GL_VERTEX_SHADER);
 glShaderSource(vid, 1, &arg1, NULL);
 glCompileShader(vid);
-
 
 glGetShaderiv(vid, GL_COMPILE_STATUS, &compiled);
 if (!compiled) {
@@ -612,10 +614,10 @@ apply-mesh-end
 ))
 
 (define (gl-push-transformation trans)
-  (with-access trans (Transformation c-matrix)
-    ((c-lambda ((pointer float)) void
-       "glPushMatrix(); glMultMatrixf(___arg1);")
-     c-matrix)))
+  (set-gl-matrix! trans)
+  ((c-lambda () void
+     "glPushMatrix(); glMultMatrixf(m);")
+   ))
 
 (define gl-pop-transformation
   (c-lambda () void
@@ -634,39 +636,26 @@ apply-mesh-end
 
 
 (define gl-viewing-volume
-  (c-lambda ((pointer float) (pointer float)) void
+  (c-lambda ((pointer float)) void
 #<<GL-VIEWING-VOLUME-END
   float* proj = ___arg1;
-  float* view = ___arg2;
-  //printf("%f %f %f %f\n", proj[0], proj[4], proj[8], proj[12]);
-  //printf("%f %f %f %f\n", proj[1], proj[5], proj[9], proj[13]);
-  //printf("%f %f %f %f\n", proj[2], proj[6], proj[10], proj[14]);
-  //printf("%f %f %f %f\n", proj[3], proj[7], proj[11], proj[15]);
-
-  //printf("%f %f %f %f\n", view[0], view[4], view[8], view[12]);
-  //printf("%f %f %f %f\n", view[1], view[5], view[9], view[13]);
-  //printf("%f %f %f %f\n", view[2], view[6], view[10], view[14]);
-  //printf("%f %f %f %f\n", view[3], view[7], view[11], view[15]);
-
-
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   glMultMatrixf(proj);
   CHECK_FOR_GL_ERROR();
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-  glMultMatrixf(view);
+  glMultMatrixf(m);
   CHECK_FOR_GL_ERROR();
 GL-VIEWING-VOLUME-END
 ))
-
 
 ;; --- skinning ---
 ;; (maybe this kind of skinning should be moved to animation.scm since
 ;; it is not gl specific.
 (define init-skin-mesh
-  (c-lambda (DataBlock ;; dest-verts
-             DataBlock);; dest-norms
+  (c-lambda (DataBlock  ;; dest-verts
+             DataBlock) ;; dest-norms
       void
 #<<c-init-skin-mesh-end
 memset(___arg1->GetVoidData(), 0x0, sizeof(float) * ___arg1->GetSize() * ___arg1->GetDimension());
@@ -694,26 +683,20 @@ c-declare-end
 )
 
 (define skin-mesh
-  (c-lambda (DataBlock         ;; src-verts
-             DataBlock         ;; src-norms
-             DataBlock         ;; dest-verts
-             DataBlock         ;; dest-norms
-             (pointer "float") ;; bone matrix
-             (pointer "float") ;; bone rotation matrix (no scaling)
-             Weights)          ;; vertex weights
+  (c-lambda (DataBlock ;; src-verts
+             DataBlock ;; src-norms
+             DataBlock ;; dest-verts
+             DataBlock ;; dest-norms
+             Weights)  ;; vertex weights
       void 
 #<<c-skin-mesh-end
-// printf("skin\n");
-
 float* src_verts = (float*)___arg1->GetVoidData();
 float* src_norms = (float*)___arg2->GetVoidData();
 float* dest_verts = (float*)___arg3->GetVoidData();
 float* dest_norms = (float*)___arg4->GetVoidData();
-float* m = ___arg5;
-float* m_rot = ___arg6;
 
-vector<pair<unsigned int, float> >::iterator itr = ___arg7->begin();
-for (; itr != ___arg7->end(); ++itr) {
+vector<pair<unsigned int, float> >::iterator itr = ___arg5->begin();
+for (; itr != ___arg5->end(); ++itr) {
     unsigned int index = itr->first;
     float weight = itr->second; 
  
@@ -736,4 +719,143 @@ for (; itr != ___arg7->end(); ++itr) {
     dest_n[2] += tmp[2] * weight;
 }
 c-skin-mesh-end
+))
+
+;; construct column major float array matrices from transformation.
+(define (set-gl-rotation-matrix! transformation)
+  (with-access transformation (Transformation rotation)
+    ((c-lambda (float float float float) void
+#<<UPDATE_C_MATRIX_END
+const float w  = ___arg1;
+const float x  = ___arg2;
+const float y  = ___arg3;
+const float z  = ___arg4;
+
+// first column
+m_rot[0] = 1-2*y*y-2*z*z;
+m_rot[1] = 2*x*y+2*w*z;
+m_rot[2] = 2*x*z-2*w*y;
+
+// second column
+m_rot[3] = 2*x*y-2*w*z;
+m_rot[4] = 1-2*x*x-2*z*z;
+m_rot[5] = 2*y*z+2*w*x;
+
+// third column
+m_rot[6]  = 2*x*z+2*w*y;
+m_rot[7]  = 2*y*z-2*w*x;
+m_rot[8] = 1-2*x*x-2*y*y;
+
+UPDATE_C_MATRIX_END
+)
+     (Quaternion-w rotation)
+     (Quaternion-x rotation)
+     (Quaternion-y rotation)
+     (Quaternion-z rotation))))
+
+
+
+(define (set-gl-matrix! transformation)
+  (with-access transformation (Transformation translation rotation scaling pivot)
+    (set-gl-matrix-rotation! (Quaternion-w rotation)
+                             (Quaternion-x rotation)
+                             (Quaternion-y rotation)
+                             (Quaternion-z rotation))
+    (if pivot
+        (set-gl-matrix-position-with-pivot! (vector-ref translation 0)
+                                            (vector-ref translation 1)
+                                            (vector-ref translation 2)
+                                            (vector-ref pivot 0)
+                                            (vector-ref pivot 1)
+                                            (vector-ref pivot 2))
+        (set-gl-matrix-position! (vector-ref translation 0)
+                                 (vector-ref translation 1)
+                                 (vector-ref translation 2)))
+    (set-gl-matrix-scaling! (vector-ref scaling 0)
+                            (vector-ref scaling 1)
+                            (vector-ref scaling 2))))
+
+(define set-gl-matrix-rotation!
+  (c-lambda (float float float float) void
+#<<UPDATE_C_MATRIX_END
+const float w  = ___arg1;
+const float x  = ___arg2;
+const float y  = ___arg3;
+const float z  = ___arg4;
+
+// first column
+m[0] = 1-2*y*y-2*z*z;
+m[1] = 2*x*y+2*w*z;
+m[2] = 2*x*z-2*w*y;
+
+// second column
+m[4] = 2*x*y-2*w*z;
+m[5] = 1-2*x*x-2*z*z;
+m[6] = 2*y*z+2*w*x;
+
+// third column
+m[8]  = 2*x*z+2*w*y;
+m[9]  = 2*y*z-2*w*x;
+m[10] = 1-2*x*x-2*y*y;
+
+UPDATE_C_MATRIX_END
+))
+
+(define set-gl-matrix-position-with-pivot!
+  (c-lambda (float float float float float float) void
+#<<UPDATE_TRANSFORMATION_PIVOT_END
+const float x  = ___arg1;
+const float y  = ___arg2;
+const float z  = ___arg3;
+const float px = ___arg4;
+const float py = ___arg5;
+const float pz = ___arg6;
+const float dx = x - px;
+const float dy = y - py;
+const float dz = z - pz;
+
+// fourth column
+m[12] = ((m[0] - 1.0) * dx +  m[4] * dy         +  m[8] * dz          + x);
+m[13] =  (m[1] * dx        + (m[5] - 1.0) * dy  +  m[9] * dz          + y);
+m[14] =  (m[2] * dx        +  m[6] * dy         + (m[10] - 1.0) * dz  + z);
+UPDATE_TRANSFORMATION_PIVOT_END
+))
+
+(define set-gl-matrix-position!
+  (c-lambda (float float float) void
+#<<UPDATE_TRANSFORMATION_POS_END
+
+const float x  = ___arg1;
+const float y  = ___arg2;
+const float z  = ___arg3;
+
+// fourth column
+m[12] = x;
+m[13] = y;
+m[14] = z;
+UPDATE_TRANSFORMATION_POS_END
+))
+
+(define set-gl-matrix-scaling!
+  (c-lambda (float float float) void
+#<<UPDATE_TRANSFORMATION_ROT_AND_SCL_END
+const float sx = ___arg1;
+const float sy = ___arg2;
+const float sz = ___arg3;
+
+// first column
+m[0] *= sx;
+m[1] *= sy;
+m[2] *= sz;
+
+// second column
+m[4] *= sx;
+m[5] *= sy;
+m[6] *= sz;
+
+// third column
+m[8]  *= sx;
+m[9]  *= sy;
+m[10] *= sz;
+UPDATE_TRANSFORMATION_ROT_AND_SCL_END
 ))

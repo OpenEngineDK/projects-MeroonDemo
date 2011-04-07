@@ -162,27 +162,6 @@ void readMeshes(aiMesh** ms, unsigned int size) {
                 aiQuaternion rot;
                 t.Decompose(scl, rot, pos);
                 
-                // float* offset = new float[16];
-                // offset[0] = t.a1;
-                // offset[1] = t.b1;
-                // offset[2] = t.c1;
-                // offset[3] = t.d1;
-
-                // offset[4] = t.a2;
-                // offset[5] = t.b2;
-                // offset[6] = t.c2;
-                // offset[7] = t.d2;
-
-                // offset[8]  = t.a3;
-                // offset[9]  = t.b3;
-                // offset[10] = t.c3;
-                // offset[11] = t.d3;
-
-                // offset[12] = t.a4;
-                // offset[13] = t.b4;
-                // offset[14] = t.c4;
-                // offset[15] = t.d4;
-
                 set_pos_scm(pos.x, pos.y, pos.z);
                 set_rot_scm(rot.w, rot.x, rot.y, rot.z);
                 set_scale_scm(scl.x, scl.y, scl.z);

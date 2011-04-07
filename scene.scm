@@ -74,3 +74,11 @@
 (define-method (scale! (node TransformationNode) x y z)
   (scale! (TransformationNode-transformation node) x y z))
 
+(define-method (rotation-set! (o TransformationNode) angle axis)
+  (rotation-set! (TransformationNode-transformation o angle axis)))
+
+(define-method (translation-set! (o TransformationNode) x y z)
+  (translation-set! (TransformationNode-transformation o x y z)))
+
+(define-method (scaling-set! (o TransformationNode) x y z)
+  (scaling-set! (TransformationNode-transformation o x y z)))

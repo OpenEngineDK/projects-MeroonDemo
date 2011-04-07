@@ -7,25 +7,7 @@ c-declare-end
   ([= w  :initializer (lambda () 1.0)]
    [= x  :initializer (lambda () 0.0)]
    [= y  :initializer (lambda () 0.0)]
-   [= z  :initializer (lambda () 0.0)]
-   [= c-matrix :immutable 
-      :initializer (c-lambda () (pointer float)
-		     "float* m = new float[9];
-                      memset(m, 0x0, sizeof(float) * 9); 
-                      m[0]  = 1.0f;
-                      m[4]  = 1.0f;
-                      m[8] = 1.0f;
-       		      ___result_voidstar = m;")]))
-
-(define-method (initialize! (o Quaternion))
-  ;; free the c-matrix when object is reclaimed by the gc.
-  (make-will o (lambda (x) 
-   		 ;; (display "delete array\n")
-		 (with-access x (Quaternion c-matrix)
-	           ((c-lambda ((pointer float)) void
-		      "delete[] ___arg1;")
-                    c-matrix))))
-  (call-next-method))
+   [= z  :initializer (lambda () 0.0)]))
 
 ;; Quaternion constructors:
 ;;   (make-quaternion real)
@@ -70,41 +52,8 @@ c-declare-end
               (set! w (/ w norm))
               (set! x (/ x norm))
               (set! y (/ y norm))
-              (set! z (/ z norm)))
-          (update-c-matrix! q))
+              (set! z (/ z norm))))
         (error "Can not normalize quaternion with zero norm"))))
-
-(define (update-c-matrix! q)
-  ((c-lambda (float float float float (pointer float)) void
-#<<UPDATE_C_MATRIX_END
-float w  = ___arg1;
-float x  = ___arg2;
-float y  = ___arg3;
-float z  = ___arg4;
-float* m = ___arg5;
-
-// first column
-m[0] = 1-2*y*y-2*z*z;
-m[1] = 2*x*y+2*w*z;
-m[2] = 2*x*z-2*w*y;
-
-// second column
-m[3] = 2*x*y-2*w*z;
-m[4] = 1-2*x*x-2*z*z;
-m[5] = 2*y*z+2*w*x;
-
-// third column
-m[6] = 2*x*z+2*w*y;
-m[7] = 2*y*z-2*w*x;
-m[8] = 1-2*x*x-2*y*y;
-
-UPDATE_C_MATRIX_END
-)
-   (Quaternion-w q)
-   (Quaternion-x q)
-   (Quaternion-y q)
-   (Quaternion-z q)
-   (Quaternion-c-matrix q)))
 
 (define (make-conjugate q) 
       (instantiate Quaternion 

@@ -245,8 +245,8 @@ c-declare-end
                     :rotation *transformation-rot*
                     :scaling *transformation-scale*)])
     (normalize! (Transformation-rotation offset))
-    (update-transformation-rot-and-scl! offset)
-    (update-transformation-pos! offset)
+    ;; (update-transformation-rot-and-scl! offset)
+    ;; (update-transformation-pos! offset)
     (set! *loaded-bones* (cons 
                           (instantiate BoneNode
                               :offset offset
