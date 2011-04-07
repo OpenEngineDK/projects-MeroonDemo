@@ -32,14 +32,6 @@ c-declare-end
       [else
        (error "invalid arguments to make-quaternion")])))
 
-(define-generic (normalize! (o))
-  (error (string-append "Object of type "
-                        (->Class (object->class o))
-                        " can not be normalized")))
-
-(define-method (normalize! (o Quaternion))
-  (quaternion-normalize! o))
-
 (define (quaternion-normalize! q)
  (let* ([w (Quaternion-w q)]
          [x (Quaternion-x q)]
@@ -80,7 +72,7 @@ c-declare-end
                 :x (* (sin half-angle) (vector-ref vec 0))
                 :y (* (sin half-angle) (vector-ref vec 1))
                 :z (* (sin half-angle) (vector-ref vec 2)))])
-      (normalize! q)
+      (quaternion-normalize! q)
       q))
 
 (define (make-quaternion-from-euler-angles x y z)
@@ -195,7 +187,7 @@ c-declare-end
               :x (+ (* (- 1.0 scale) (Quaternion-x q1)) (* scale (Quaternion-x q2)))
               :y (+ (* (- 1.0 scale) (Quaternion-y q1)) (* scale (Quaternion-y q2)))
               :z (+ (* (- 1.0 scale) (Quaternion-z q1)) (* scale (Quaternion-z q2))))])
-    (normalize! q)
+    (quaternion-normalize! q)
     q))
 
 (define-method (show (o Quaternion) . stream)

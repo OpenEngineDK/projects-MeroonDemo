@@ -244,7 +244,7 @@ c-declare-end
                     :translation *transformation-pos*
                     :rotation *transformation-rot*
                     :scaling *transformation-scale*)])
-    (normalize! (Transformation-rotation offset))
+    ;; (normalize! (Transformation-rotation offset))
     ;; (update-transformation-rot-and-scl! offset)
     ;; (update-transformation-pos! offset)
     (set! *loaded-bones* (cons 

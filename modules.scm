@@ -87,5 +87,5 @@ get-time-end
                         :x (+ (* (- 1.0 factor) (Quaternion-x from-rot)) (* factor (Quaternion-x to-rot)))
                         :y (+ (* (- 1.0 factor) (Quaternion-y from-rot)) (* factor (Quaternion-y to-rot)))
                         :z (+ (* (- 1.0 factor) (Quaternion-z from-rot)) (* factor (Quaternion-z to-rot)))))
-              (normalize! rotation))
+              (quaternion-normalize! rotation))
 )))))

@@ -69,7 +69,7 @@ c-declare-end
                         (->Class (object->class o))
                         " has no scaling")))
 
-(define-generic (move! (o) x y z)
+(define-generic (translate! (o) x y z)
   (error (string-append "Object of type "
                         (->Class (object->class o))
                         " is not movable")))
@@ -86,7 +86,7 @@ c-declare-end
   (Transformation-rotate o angle vec))
 
 ;; should be named translate!
-(define-method (move! (o Transformation) x y z)
+(define-method (translate! (o Transformation) x y z)
   (Transformation-translate o x y z))
 
 (define-method (scale! (o Transformation) x y z)

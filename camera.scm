@@ -7,7 +7,7 @@
   ([= aspect   :immutable :initializer (lambda () (/ 4.0 3.0))]
    [= fov      :immutable :initializer (lambda () (/ pi 4.0))]
    [= near     :immutable :initializer (lambda () 3.0)]
-   [= far      :immutable :initializer (lambda () 3000.0)]
+   [= far      :immutable :initializer (lambda () 5000.0)]
    [= c-matrix :immutable 
       :initializer (c-lambda () (pointer "float")
 		     "float* m = new float[16];
@@ -88,6 +88,5 @@ UPDATE_PROJECTION_END
 (define-method (rotate! (cam Camera) angle vec)
   (rotate! (Camera-view cam) (- angle) vec))
 
-(define-method (move! (cam Camera) x y z)
-  (move! (Camera-view cam) (- x) (- y) (- z)))
-
+(define-method (translate! (cam Camera) x y z)
+  (translate! (Camera-view cam) (- x) (- y) (- z)))

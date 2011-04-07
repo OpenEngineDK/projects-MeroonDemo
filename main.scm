@@ -21,6 +21,7 @@
 (define astroboy-model    (load-scene "resources/astroboy/astroboy_walk.dae"))
 (define sharky-model      (load-scene "resources/sharky/Sharky09.DAE"))
 (define finn-model        (load-scene "resources/finn/Finn08.DAE"))
+(define env-model         (load-scene "resources/environment/Environment03.DAE"))
 
 ;; Create some scene nodes
 (define jaw-node
@@ -41,18 +42,22 @@
   (instantiate TransformationNode
     :children (list finn-model)))
 
+(define plane
+  (instantiate TransformationNode
+    :children (list plane-model)))
+
 (define light
   (instantiate TransformationNode
     :children (list (instantiate LightLeaf))))
 
 (define top
   (instantiate TransformationNode
-      :children (list dragon light)
+      :children (list light);; dragon)
       :transformation (instantiate Transformation
                           :translation (vector -1.0 -1.0 0.0))))
 
 (define cam (instantiate Camera))
-(move! cam 0.0 0.0 400.0)
+(translate! cam 0.0 0.0 400.0)
 
 ;; animation module system (mainly for bone animation)
 (define animator (instantiate Animator))
@@ -60,7 +65,7 @@
 (define modules
   (make-modules
    (make-animator-module animator top) ;; give the animation subsystem processing time
-   (make-rotator dragon (* pi .5) (vector 0.0 1.0 0.0))
+   ;; (make-rotator dragon (* pi .5) (vector 0.0 1.0 0.0))
    ;; move light up and down
    (make-animator ;; deprecated stuff (see animation.scm)
     (TransformationNode-transformation light)
@@ -100,7 +105,7 @@
                        [(equal? k 'right) (set! move-right s)])))  
   (set! modules (add-module (lambda (dt)
                               (if (or move-up move-down move-left move-right)
-                                  (move! cam 
+                                  (translate! cam 
                                          (+   ; x
                                           (if move-left (* -1 move-scale dt) 0.0)
                                           (if move-right (* move-scale dt) 0.0))
@@ -115,14 +120,19 @@
 ;; (if sharky-model
 ;;     (begin
 ;;       (scene-add-node! top sharky-model)
-;;       (move! dragon 0. 100 0.)
+;;       (translate! dragon 0. 100 0.)
 ;;       (play (cadr *animations*) animator)))
+
+(if env-model
+    (begin
+      (translate! (car (SceneNode-children env-model)) 0. -250. 0.)
+      (scene-add-node! top env-model)))
 
 (if finn-model
     (begin
       (set! modules (cons (make-boids-module (TransformationNode-transformation finn) (car *animations*) animator) modules))
       (scene-add-node! top finn)
-      (move! finn 27. 0. 300.)
+      (translate! finn 27. 0. 300.)
       (play (car *animations*) animator)))
 
 (let* ([can   (instantiate Canvas3D

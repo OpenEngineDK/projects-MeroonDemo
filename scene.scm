@@ -68,8 +68,8 @@
 (define-method (rotate! (o TransformationNode) angle vec)
   (rotate! (TransformationNode-transformation o) angle vec))
 
-(define-method (move! (node TransformationNode) x y z)
-  (move! (TransformationNode-transformation node) x y z))
+(define-method (translate! (node TransformationNode) x y z)
+  (translate! (TransformationNode-transformation node) x y z))
 
 (define-method (scale! (node TransformationNode) x y z)
   (scale! (TransformationNode-transformation node) x y z))
