@@ -20,6 +20,11 @@
   ([= transformation
       :initializer (lambda () (instantiate Transformation))]))
 
+;; used to update cameras transformation with respect to its position
+;; in the scene graph.
+(define-class CameraLeaf SceneLeaf
+  ([= camera]))
+
 ;; A BoneNode is essentially a TransformationNode with a list of vertex weights
 (define-class BoneNode SceneNode
   ([= offset ;; the bind pose transformation

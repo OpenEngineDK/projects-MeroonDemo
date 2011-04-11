@@ -177,3 +177,29 @@ CALC-PROJ-END
 )
      x y z point)
     point))
+
+
+(define (update-cameras! scene)
+  (*update-cameras! scene (instantiate Transformation)))
+
+(define-generic  (*update-cameras! (scene Scene) tos)
+  (error "Unsupported Scene"))
+
+(define-method (*update-cameras! (leaf SceneLeaf) tos)
+#f)
+
+(define-method (*update-cameras! (node SceneNode) tos)
+  (do ([children (SceneNode-children node) (cdr children)])
+      ((null? children))
+    (*update-cameras! (car children) tos)))
+
+(define-method (*update-cameras! (node TransformationNode) tos)
+  (with-access node (TransformationNode transformation)
+    (let ([push-trans (compose-trans tos transformation)])
+      (do ([children (TransformationNode-children node) (cdr children)])
+          ((null? children))
+          (*update-cameras! (car children) push-trans)))))
+
+(define-method (*update-cameras! (leaf CameraLeaf) tos)
+  (with-access (CameraLeaf-camera leaf) (Camera view)
+    (set! view tos)))
