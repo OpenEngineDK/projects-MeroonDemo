@@ -12,15 +12,9 @@ GAMBIT_ADD_LIBRARY(OE_Data GAMBIT_MEROON
 )
 GAMBIT_LOAD_LIBRARY(OE_Data)
 
-## global generics (move! etc.)
-GAMBIT_ADD_LIBRARY(OE_Generics OE_Data
-  generics.scm
-)
-GAMBIT_LOAD_LIBRARY(OE_Generics)
-
 ## Standard OE objects defined by Meroon. These are made available to
 ## later modules by loading them into the compiler
-GAMBIT_ADD_LIBRARY(OE_Objects OE_Generics
+GAMBIT_ADD_LIBRARY(OE_Objects OE_Data
   # quaternion should be redefined as a f42 vec and moved to OE_Data
   # utility types
   quaternion.scm 
