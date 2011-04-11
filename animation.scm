@@ -1,13 +1,3 @@
-;; an animated mesh is a Mesh which contains a list of the bones that affect it.
-(define-class AnimatedMesh Mesh
-  ([= bind-pose-vertices ;; the original "bind pose" mesh data 
-     :immutable]
-   [= bind-pose-normals 
-      :immutable]
-   [= bones ;; bones that affect this mesh
-      :immutable :initializer list]
-   ))
-
 ;; animation base class
 (define-class Animation Object
   ([= name
@@ -233,31 +223,6 @@
                               rotation-keys
                               scaling-keys)
       (set! dirty #t))))
-
-(define (compose-trans t1 t2)
-  (with-access t1 (Transformation rotation)
-    (instantiate Transformation 
-        :translation (vector-map 
-                      +
-                      (rotate-vector 
-                       (Transformation-translation t2) 
-                       rotation)
-                      (Transformation-translation t1))
-        :rotation (quaternion*                 
-                   rotation
-                   (Transformation-rotation t2)))))
-
-(define (compose-trans! t1 t2 t3)
-  (with-access t3 (Transformation translation rotation)
-    (set! translation (vector-map 
-                       +
-                       (rotate-vector 
-                        (Transformation-translation t2) 
-                        (Transformation-rotation t1))
-                       (Transformation-translation t1)))
-    (set! rotation (quaternion*                 
-                    (Transformation-rotation t1)
-                    (Transformation-rotation t2)))))
 
 ;; Q: do we include regular transformation nodes in bone accumulation?
 

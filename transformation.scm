@@ -24,6 +24,33 @@ c-declare-end
       :initializer (lambda () (instantiate Quaternion))]
    [= pivot :initializer (lambda () #f)]))
 
+;; some transformation operations (missing scale!!!)
+(define (compose-trans t1 t2)
+  (with-access t1 (Transformation rotation)
+    (instantiate Transformation 
+        :translation (vector-map 
+                      +
+                      (rotate-vector 
+                       (Transformation-translation t2) 
+                       rotation)
+                      (Transformation-translation t1))
+        :rotation (quaternion*                 
+                   rotation
+                   (Transformation-rotation t2)))))
+
+(define (compose-trans! t1 t2 t3)
+  (with-access t3 (Transformation translation rotation)
+    (set! translation (vector-map 
+                       +
+                       (rotate-vector 
+                        (Transformation-translation t2) 
+                        (Transformation-rotation t1))
+                       (Transformation-translation t1)))
+    (set! rotation (quaternion*                 
+                    (Transformation-rotation t1)
+                    (Transformation-rotation t2)))))
+
+
 ;;; methods
 (define-generic (Transformation-translate (o Transformation) x y z)
   (with-access o (Transformation translation)
@@ -54,20 +81,20 @@ c-declare-end
                         (->Class (object->class o))
                         " can not be rotated")))
 
-(define-generic (translation-set! (o) x y z)
-  (error (string-append "Object of type "
-                        (->Class (object->class o))
-                        " has no translation")))
+;; (define-generic (translation-set! (o) x y z)
+;;   (error (string-append "Object of type "
+;;                         (->Class (object->class o))
+;;                         " has no translation")))
 
-(define-generic (rotation-set! (o) angle vec)
-  (error (string-append "Object of type "
-                        (->Class (object->class o))
-                        " has no rotation")))
+;; (define-generic (rotation-set! (o) q)
+;;   (error (string-append "Object of type "
+;;                         (->Class (object->class o))
+;;                         " has no rotation")))
 
-(define-generic (scaling-set! (o) x y z)
-  (error (string-append "Object of type "
-                        (->Class (object->class o))
-                        " has no scaling")))
+;; (define-generic (scaling-set! (o) x y z)
+;;   (error (string-append "Object of type "
+;;                         (->Class (object->class o))
+;;                         " has no scaling")))
 
 (define-generic (translate! (o) x y z)
   (error (string-append "Object of type "
@@ -85,21 +112,20 @@ c-declare-end
 (define-method (rotate! (o Transformation) angle vec)
   (Transformation-rotate o angle vec))
 
-;; should be named translate!
 (define-method (translate! (o Transformation) x y z)
   (Transformation-translate o x y z))
 
 (define-method (scale! (o Transformation) x y z)
   (Transformation-scale o x y z))
 
-(define-method (rotation-set! (o Transformation) angle axis)
-  (with-access o (Transformation rotation)
-    (set! rotation (make-quaternion-from-angle-axis angle axis))))
+;; (define-method (rotation-set! (o Transformation) q)
+;;   (with-access o (Transformation rotation)
+;;     (set! rotation q)))
 
-(define-method (translation-set! (o Transformation) x y z)
-  (with-access o (Transformation translation)
-    (set! translation  (vector x y z))))
+;; (define-method (translation-set! (o Transformation) x y z)
+;;   (with-access o (Transformation translation)
+;;     (set! translation  (vector x y z))))
 
-(define-method (scaling-set! (o Transformation) x y z)
-  (with-access o (Transformation translation)
-    (set! scaling (vector x y z))))
+;; (define-method (scaling-set! (o Transformation) x y z)
+;;   (with-access o (Transformation translation)
+;;     (set! scaling (vector x y z))))

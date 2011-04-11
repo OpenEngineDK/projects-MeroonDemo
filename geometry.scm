@@ -7,6 +7,16 @@
    ;; [= datablocks :immutable]
    [= texture :immutable :initializer (lambda () #f)]))
 
+;; an animated mesh is a Mesh which contains a list of the bones that affect it.
+(define-class AnimatedMesh Mesh
+  ([= bind-pose-vertices ;; the original "bind pose" mesh data 
+     :immutable]
+   [= bind-pose-normals 
+      :immutable]
+   [= bones ;; bones that affect this mesh
+      :immutable :initializer list]
+   ))
+
 (define-class Light Object 
   ([= ambient  :initializer (lambda () (vector .2 .2 .2 1.))]
    [= diffuse  :initializer (lambda () (vector .8 .8 .8 1.))]
