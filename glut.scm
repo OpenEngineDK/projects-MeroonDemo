@@ -14,6 +14,54 @@ c-declare-end
 (define *glut-idle-function* #f)
 (define *glut-keyboard-function* #f)
 (define *glut-special-function* #f)
+(define *glut-mouse-function* #f)
+(define *glut-motion-function* #f)
+
+;; callback lists for mouse events
+(define *glut-mouse-callbacks* '())
+(define *glut-motion-callbacks* '())
+
+(define (mouse-button i)
+  (cond 
+    [(= i 0)
+     'left]
+    [(= i 1)
+     'middle]
+    [(= i 2)
+     'right]
+    [(= i 3)
+     'scroll-up]
+    [(= i 4)
+     'scroll-down]
+    [else 
+     'unknown]))
+
+(define (button-state i)
+  (cond 
+    [(= i 0)
+     'down]
+    [(= i 1)
+     'up]
+    [else 
+     'unknown]))
+
+(c-define (glut-mouse-callback btn state x y)
+    (int int int int) void "glut_mouse_scm_callback" ""
+  (let ([btn-sym (mouse-button btn)]
+        [state-sym (button-state state)])
+    (map (lambda (f) (f btn-sym state-sym x y)) *glut-mouse-callbacks*)))
+
+(c-define (glut-motion-callback x y)
+    (int int) void "glut_motion_scm_callback" ""
+  (map (lambda (f) (f x y)) *glut-motion-callbacks*))
+
+(define (glut-add-mouse-callback f)
+  (set! *glut-mouse-callbacks* (cons f *glut-mouse-callbacks*)))
+
+(define (glut-add-motion-callback f)
+  (set! *glut-motion-callbacks* (cons f *glut-motion-callbacks*)))
+
+;; --- end mouse stuff ---
 
 (c-define (glut-display-function-callback)
     () void "glut_display_scm_callback" ""
@@ -66,7 +114,9 @@ glutKeyboardFunc(glut_keyboard_down_scm_callback);
 glutKeyboardFunc(glut_keyboard_up_scm_callback);
 glutSpecialFunc(glut_special_down_scm_callback);
 glutSpecialUpFunc(glut_special_up_scm_callback);
-
+glutMouseFunc(glut_mouse_scm_callback);
+glutMotionFunc(glut_motion_scm_callback);
+glutPassiveMotionFunc(glut_motion_scm_callback);
 glewInit();
 
 ___result = win;
