@@ -44,12 +44,13 @@ INIT_GL_CONTEXT_END
 (define-method (render! (ctx GLContext) (can Canvas3D))
   (gl-clear) ;; might not want to clear here...
   (gl-viewport (Canvas-width can) (Canvas-height can))
-  (set-gl-matrix! (Camera-view (Canvas3D-camera can)))
+  (set-gl-view-matrix! (Camera-view (Canvas3D-camera can)))
   (gl-viewing-volume (Projection-c-matrix (Camera-proj (Canvas3D-camera can))))
   (with-access ctx (GLContext num-lights)
     (set! num-lights 0))
   (gl-setup-lights ctx (Canvas3D-scene can))
-  (gl-render-scene ctx (Canvas3D-scene can)))
+  (gl-render-scene ctx (Canvas3D-scene can))
+  )
 
 
 ;; Scene rendering
@@ -634,7 +635,6 @@ apply-mesh-end
      glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
      CHECK_FOR_GL_ERROR();"))
 
-
 (define gl-viewing-volume
   (c-lambda ((pointer float)) void
 #<<GL-VIEWING-VOLUME-END
@@ -753,8 +753,53 @@ UPDATE_C_MATRIX_END
      (Quaternion-y rotation)
      (Quaternion-z rotation))))
 
+;; the view matrix is the inverse matrix of the camera transformation
+(define (set-gl-view-matrix! transformation)
+  (with-access transformation (Transformation translation rotation)
+    (with-access rotation (Quaternion w x y z)
+      ((c-lambda (float float float float) void
+#<<UPDATE_C_MATRIX_END
+const float w  = ___arg1;
+const float x  = ___arg2;
+const float y  = ___arg3;
+const float z  = ___arg4;
 
+// first column
+m[0] = 1-2*y*y-2*z*z;
+m[1] = 2*x*y-2*w*z;
+m[2]  = 2*x*z+2*w*y;
 
+// second column
+m[4] = 2*x*y+2*w*z;
+m[5] = 1-2*x*x-2*z*z;
+m[6]  = 2*y*z-2*w*x;
+
+// third column
+m[8] = 2*x*z-2*w*y;
+m[9] = 2*y*z+2*w*x;
+m[10] = 1-2*x*x-2*y*y;
+
+UPDATE_C_MATRIX_END
+)
+       w x y z))
+    ((c-lambda (float float float) void
+#<<UPDATE_TRANSFORMATION_POS_END
+
+const float x  = ___arg1;
+const float y  = ___arg2;
+const float z  = ___arg3;
+
+// fourth column
+m[12] = -x;
+m[13] = -y;
+m[14] = -z;
+UPDATE_TRANSFORMATION_POS_END
+)
+     (vector-ref translation 0)
+     (vector-ref translation 1)
+     (vector-ref translation 2))))
+
+  
 (define (set-gl-matrix! transformation)
   (with-access transformation (Transformation translation rotation scaling pivot)
     (set-gl-matrix-rotation! (Quaternion-w rotation)

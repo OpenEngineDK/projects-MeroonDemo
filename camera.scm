@@ -14,7 +14,6 @@
 		     ___result_voidstar = m;"
 		     )]))
 
-
 (define-method (initialize! (o Projection))
   ;; free the c-matrix when object is reclaimed by the gc.
   (update-proj! o)
@@ -77,16 +76,13 @@ UPDATE_PROJECTION_END
 ;; scene transformation matrix, since it transforms from world
 ;; space to camera space. 
 
-;; Currently this is handled (hackishly) by letting move! and rotate!
-;; do inverse operations. This hack easily goes away when the c-matrix
-;; is pulled out of the transformation abstraction.
-
 (define-class Camera Object
   ([= proj :initializer (lambda () (instantiate Projection))]
    [= view :initializer (lambda () (instantiate Transformation))]))
 
 (define-method (rotate! (cam Camera) angle vec)
-  (rotate! (Camera-view cam) (- angle) vec))
+  (rotate! (Camera-view cam) angle vec))
 
 (define-method (translate! (cam Camera) x y z)
-  (translate! (Camera-view cam) (- x) (- y) (- z)))
+  (translate! (Camera-view cam) x y z))
+
