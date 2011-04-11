@@ -3,7 +3,7 @@
 
 dist /dependencies/GambitDep/GambitDep.dist http://openengine.dk/code/dependencies/GambitDep/GambitDep.dist
 dist /extensions/Assimp/Assimp.dist http://openengine.dk/code/extensions/Assimp/Assimp.dist
-#dist /extensions/SDLImage/SDLImage.dist http://openengine.dk/code/extensions/SDLImage/SDLImage.dist
+dist /extensions/BulletPhysics/BulletPhysics.dist http://openengine.dk/code/extensions/BulletPhysics/BulletPhysics.dist
 
 # main repository
 darcs / http://openengine.dk/code/openengine

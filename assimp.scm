@@ -351,6 +351,9 @@ c-load-scene-end
   (set! *loaded-transformations* '())
   (if (c-load-scene path)
       (let ([root *scene-root*])
+        (with-access *scene-root* (SceneNode children)
+          (if (= 1 (length children))
+              (set! root (car children))))
 	;; cleanup globals
 	(set! *scene-root* #f)
 	(set! *scene-parent-stack* #f)

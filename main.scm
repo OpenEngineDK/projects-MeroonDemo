@@ -14,12 +14,12 @@
 (define *current-keymap* (keymap-make))
 
 ;; Load some models
-(define dragon-head-model (load-scene "resources/Dragon/DragonHead.obj"))
-(define dragon-jaw-model  (load-scene "resources/Dragon/DragonJaw.obj"))
-(define arne-model        (load-scene "resources/arme_arne/ArmeArne02.DAE"))
+;; (define dragon-head-model (load-scene "resources/Dragon/DragonHead.obj"))
+;; (define dragon-jaw-model  (load-scene "resources/Dragon/DragonJaw.obj"))
+;; (define arne-model        (load-scene "resources/arme_arne/ArmeArne02.DAE"))
 (define plane-model       (load-scene "resources/plane/seymourplane_triangulate.dae"))
-(define astroboy-model    (load-scene "resources/astroboy/astroboy_walk.dae"))
-(define sharky-model      (load-scene "resources/sharky/Sharky09.DAE"))
+;; (define astroboy-model    (load-scene "resources/astroboy/astroboy_walk.dae"))
+;; (define sharky-model      (load-scene "resources/sharky/Sharky09.DAE"))
 (define finn-model        (load-scene "resources/finn/Finn08.DAE"))
 (define env-model         (load-scene "resources/environment/Environment03.DAE"))
 
@@ -42,9 +42,9 @@
   (instantiate TransformationNode
     :children (list finn-model)))
 
-(define plane
-  (instantiate TransformationNode
-    :children (list plane-model)))
+;; (define plane
+;;   (instantiate TransformationNode
+;;     :children (list plane-model)))
 
 (define light
   (instantiate TransformationNode
@@ -52,41 +52,29 @@
 
 (define top
   (instantiate TransformationNode
-      :children (list light);; dragon)
-      :transformation (instantiate Transformation
-                          :translation (vector -1.0 -1.0 0.0))))
+      :children (list light)));; dragon)
+      ;; :transformation (instantiate Transformation
+      ;;                     :translation (vector -1.0 -1.0 0.0))))
 
 (define cam (instantiate Camera))
-(translate! cam 0.0 0.0 400.0)
+(translate! cam 0.0 200. 400.0)
 
 ;; animation module system (mainly for bone animation)
 (define animator (instantiate Animator))
 
+;; bullet physics system
+(define physics (instantiate BulletPhysics))
+(gravity-set! physics 0. -9.82 0.)
+
 (define modules
   (make-modules
-   (make-animator-module animator top) ;; give the animation subsystem processing time
-   ;; (make-rotator dragon (* pi .5) (vector 0.0 1.0 0.0))
-   ;; move light up and down
-   (make-animator ;; deprecated stuff (see animation.scm)
-    (TransformationNode-transformation light)
-    (list (cons 3. (instantiate Transformation
-                     :translation (vector 0. 100. 500.)))
-          (cons 6. (instantiate Transformation
-                     :translation (vector 0. -100. 500.)))
-          (cons 9. (instantiate Transformation
-                     :translation (vector 0. 100. 500.)))))
-   ;; move the dragon jaw
-   (make-animator ;; deprecated stuff (see animation.scm)
-    (TransformationNode-transformation jaw-node)
-    (list (cons 2. (instantiate Transformation
-                     :rotation (make-quaternion (/ pi 4)
-                                                (vector 1. 0. 0.))))
-          (cons 4. (instantiate Transformation))
-          
-          (cons 6. (instantiate Transformation
-                     :rotation (make-quaternion (/ pi 4)
-                                                (vector 1. 0. 0.))))))))
 
+   (make-physics-module physics) ;; give the physics subsystem processing time
+
+   (make-animator-module animator top) ;; give the animation subsystem processing time
+
+   (lambda (dt) (update-cameras! top))
+))
 
 ;; key input handling
 (keymap-add-key! *current-keymap* #\esc (lambda (k s)
@@ -116,33 +104,63 @@
                               modules)))
 
 
-;; setup some fishy animation demo
-;; (if sharky-model
-;;     (begin
-;;       (scene-add-node! top sharky-model)
-;;       (translate! dragon 0. 100 0.)
-;;       (play (cadr *animations*) animator)))
-
 (if env-model
     (begin
-      (translate! (car (SceneNode-children env-model)) 0. -250. 0.)
       (scene-add-node! top env-model)))
 
 (if finn-model
     (begin
       (set! modules (cons (make-boids-module (TransformationNode-transformation finn) (car *animations*) animator) modules))
+
       (scene-add-node! top finn)
-      (translate! finn 27. 0. 300.)
+      (translate! finn 27. 200. 300.)
       (play (car *animations*) animator)))
 
+(define rb #f)
+(define plane #f)
+
+(if plane-model
+    (begin 
+      (let ([rotor (car (TransformationNode-children (list-ref (TransformationNode-children plane-model) 2)))])
+        (set! modules (cons (make-rotator rotor (* 4 pi) (vector 0. 0. 1.)) modules)))
+      
+      ;; create static collision plane
+      (let ([plane-shape (make-rigid-body 
+                           physics
+                           (instantiate Plane 
+                               :normal (vector 0. 1. 0.) 
+                               :distance 55.))])
+      (mass-set! physics plane-shape 0.)) ;; assigning zero mass makes rb static
+
+      ;; create a rigid box and hook transformation to finn
+      (set! rb (make-rigid-body 
+                  physics
+                  (instantiate AABB 
+                      :min (make-vector 3 -15.) 
+                      :max (make-vector 3 15.))))
+
+      (set! plane (instantiate TransformationNode
+                      :transformation (RigidBody-transformation rb)
+                      :children (list plane-model)))
+      (translate! plane 0. 60. 0.)
+      (rotate! plane pi (vector 0. 1. 0.))
+      (synchronize-transform! rb)
+      (uniform-scale! plane 4.)
+
+      (linear-damping-set! physics rb 0.8)
+      (scene-add-node! top plane)))
+
 (let* ([can   (instantiate Canvas3D
-                :width  1024
-                :height 768
+                :width  800
+                :height 600
                 :scene  top
                 :camera cam)]
-       [win (make-window 1024 768)]
+       [win (make-window 800 600)]
        [ctx (get-context win)]
        [last-time (time-in-seconds)])
+  
+  (make-physics-grabber glut-add-mouse-callback glut-add-motion-callback can physics)
+
   (display "Starting main loop.")
   (newline)
   (display "OpenGL vbo support: ")
@@ -173,6 +191,7 @@
 		     (process-modules dt modules)
                      (queue-run *main-queue*)
                      (render! ctx can)
+                     (bullet-debug-draw)
                      (##gc) ;; trigger gc to minimize pause times
                      (thread-sleep! 0.005)
                      ))))

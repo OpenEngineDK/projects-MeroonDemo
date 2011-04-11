@@ -65,6 +65,7 @@ GAMBIT_ADD_EXECUTABLE(MeroonDemo OE_OpenGL_Env
   modules.scm
   assimp.scm
   dotvisitor.scm
+  physics.scm
   boids.scm
   main.scm
 )
@@ -73,5 +74,6 @@ TARGET_LINK_LIBRARIES(MeroonDemo
   Extensions_OBJResource
   Extensions_TGAResource
   Extensions_AssimpResource
+  Extensions_BulletPhysics
   CPPStuff
 )
