@@ -1,14 +1,10 @@
 (c-declare #<<c-declare-end
 #include <Resources/Texture2D.h>
 #include <Resources/ResourceManager.h>
-#include <Resources/FreeImage.h>
+#include <FreeImage.h>
 using namespace OpenEngine::Resources;
 c-declare-end
 )
-
-((c-lambda () void
-"ResourceManager<ITexture2D>::AddPlugin(new FreeImagePlugin());"
-))
 
 ;; --- Image ---
 (define-class Image Object
@@ -40,23 +36,94 @@ c-declare-end
 (define c-load-bitmap
   (c-lambda (char-string) bool
 #<<c-load-bitmap-end
-ITexture2DPtr texr = ResourceManager<ITextureResource>::Create(___arg1);
-texr->Load();
-unsigned int size = texr->GetChannels() * texr->GetChannelSize() * texr->GetWidth() * texr->GetHeight();
-char* data = new char[size];
 
-// copy the texture data since texr boost pointer goes out of scope and deletes the internal data array.
-memcpy(data, texr->GetVoidDataPtr(), size);
-// printf("load-bitmap path: %s width: %d height: %d\n", ___arg1, texr->GetWidth(), texr->GetHeight());
-
-switch (texr->GetColorFormat()) {
-  case RGB:  set_bitmap_scm(texr->GetWidth(), texr->GetHeight(), "rgb", data); break;
-  case RGBA: set_bitmap_scm(texr->GetWidth(), texr->GetHeight(), "rgba", data); break;
-  case BGR:  set_bitmap_scm(texr->GetWidth(), texr->GetHeight(), "bgr", data); break;
-  case BGRA: set_bitmap_scm(texr->GetWidth(), texr->GetHeight(), "bgra", data); break;
-  default:   set_bitmap_scm(texr->GetWidth(), texr->GetHeight(), "unknown", data); break;
+FREE_IMAGE_FORMAT formato = FreeImage_GetFileType(___arg1, 0);
+FIBITMAP* img = FreeImage_Load(formato, ___arg1);
+if (!img) {
+    ___result = false;
 }
-texr->Unload();
+else {
+// color types:
+// 'uint8   : one channel 8 bit int
+// 'uint16  : one channel 16 bit int
+// 'float32 : one channel 32 bit float
+// 'rgb565  : 16 bit rgb color
+// 'rgb     : 24 bit rgb color
+// 'rgba    : 32 bit rgba color
+// 'rgb32f  : 3 x 32 bit float color  
+// 'rgba32f : 4 x 32 bit float color  
+
+
+    unsigned int width  = FreeImage_GetWidth(img);
+    unsigned int height = FreeImage_GetHeight(img);
+    unsigned int pixels = width * height;
+    BYTE *bits = FreeImage_GetBits(img);
+    unsigned int bpp = FreeImage_GetBPP(img);
+    FREE_IMAGE_TYPE image_type = FreeImage_GetImageType(img);
+    bool loaded = true;
+
+    unsigned int i;
+    switch(image_type) {
+        case FIT_BITMAP: 
+        {
+            switch(bpp) {
+                case 8:
+                {
+                    char* data = new char[pixels];
+                    memcpy(data, bits, sizeof(char) * pixels); 
+                    set_bitmap_scm(width, height, "uint8", data); 
+                    break;
+                }
+                case 24: // we could also use 'RGBTRIPLE color' here
+                {
+                    char* data = new char[pixels*3];
+                    RGBTRIPLE* pix = (RGBTRIPLE*) bits;
+                    for (i = 0; i < pixels; ++i) {
+                        data[i*3]   = pix[i].rgbtRed;
+                        data[i*3+1] = pix[i].rgbtGreen;
+                        data[i*3+2] = pix[i].rgbtBlue;
+                    }
+                    set_bitmap_scm(width, height, "rgb", data);
+                    break;
+                }
+                case 32:
+                {
+                    char* data = new char[pixels*4];
+                    RGBQUAD* pix = (RGBQUAD*) bits;
+                    for (i = 0; i < pixels; ++i) {
+                        data[i*4]   = pix[i].rgbRed;
+                        data[i*4+1] = pix[i].rgbGreen;
+                        data[i*4+2] = pix[i].rgbBlue;
+                        data[i*4+3] = pix[i].rgbReserved;
+                    }
+                    set_bitmap_scm(width, height, "rgba", data);
+                    break;
+                }
+                default:
+                    loaded = false;
+            }
+            break;   
+        }
+        case FIT_UINT16:
+        {
+            unsigned short* data = new (unsigned short)(pixels);
+            memcpy(data, bits, sizeof(unsigned short) * pixels); 
+            set_bitmap_scm(width, height, "uint16", (char*)data); 
+            break;
+        }
+        case FIT_FLOAT:
+            {
+                float* data = new float[pixels];
+                memcpy(data, bits, sizeof(float) * pixels); 
+                set_bitmap_scm(width, height, "float32", (char*)data); 
+                break;
+            }
+        default:
+            loaded = false;
+    }
+    FreeImage_Unload(img);
+    ___result = loaded;
+}        
 c-load-bitmap-end
 ))
 
