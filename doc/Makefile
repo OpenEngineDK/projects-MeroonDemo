@@ -128,3 +128,16 @@ doctest:
 	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
+
+
+deps:
+	rm -rf _python
+	mkdir -p _python
+	PYTHONPATH=_python easy_install -d _python -U sphinx \
+        || echo "Please install easy_install (python-setuptools on ubuntu)"
+	hg clone http://users-cs.au.dk/zerny/sphinx-contrib _python/sphinx-contrib \
+        || echo "Please install the mercurial distributed SCM"
+	#cd _python/sphinx-contrib/bnf;          python setup.py build; python setup.py install --user
+	#cd _python/sphinx-contrib/infrule;      python setup.py build; python setup.py install --user
+	cd _python/sphinx-contrib/schemedomain; python setup.py build; python setup.py install --user
+	#cd _python/sphinx-contrib/ditaa;        python setup.py build; python setup.py install --use
