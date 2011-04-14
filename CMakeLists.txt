@@ -71,8 +71,8 @@ GAMBIT_ADD_EXECUTABLE(MeroonDemo OE_OpenGL_Env
 )
 TARGET_LINK_LIBRARIES(MeroonDemo
   OpenEngine_Core
-  Extensions_OBJResource
-  Extensions_TGAResource
+  #Extensions_OBJResource
+  #Extensions_TGAResource
   Extensions_AssimpResource
   Extensions_BulletPhysics
   CPPStuff
