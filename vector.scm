@@ -104,3 +104,11 @@
              (* s (vector-ref v 2))))
 
 
+(define (vector-interp v1 v2 scale)
+  (let ([x (vector-ref v1 0)]
+        [y (vector-ref v1 1)]
+        [z (vector-ref v1 2)])
+    (vector (+ x (* scale (- (vector-ref v2 0) x)))
+            (+ y (* scale (- (vector-ref v2 1) y)))
+            (+ z (* scale (- (vector-ref v2 2) z))))))
+
