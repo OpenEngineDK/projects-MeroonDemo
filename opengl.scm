@@ -1,29 +1,39 @@
 ;; Context definition
-
 (define-class GLContext Context 
-  ([= textures :initializer list]
-   [= shaders :initializer list]
+  ([= textures :initializer make-table]
+   [= meshes   :initializer make-table]
+   [= shaders  :initializer list]
    [= vbos :initializer list]
    [= num-lights :initializer (lambda () 0)]
    [= vbo? :initializer (lambda () #f)]
    [= fbo? :initializer (lambda () #f)]))
 
-(define-generic (gl-lookup-texture-id (ctx GLContext) texture)
+(define (gl-lookup-texture-id ctx texture)
   (cond
     [(assoc texture (GLContext-textures ctx))
      => (lambda (p) (cdr p))]
     [else #f]))
 
-(define-generic (gl-lookup-vbo-id (ctx GLContext) db)
+(define (gl-lookup-vbo-id ctx db)
   (cond
     [(assoc db (GLContext-vbos ctx))
      => (lambda (p) (cdr p))]
     [else #f]))
 
+(define (gl-lookup-mesh ctx m)
+  (cond
+    [(assoc m (GLContext-meshes ctx))
+     => (lambda (p) (cdr p))]
+    [else #f]))
+
 (define-method (initialize-context! (ctx GLContext))
   (with-access ctx (GLContext vbo? fbo?)
-    (set! vbo? ((c-lambda () bool "___result = glewIsSupported(\"GL_VERSION_2_0\");")))
-    (set! fbo? ((c-lambda () bool "___result = (glewGetExtension(\"GL_EXT_framebuffer_object\") == GL_TRUE);"))))
+    (set! vbo? #f) ;; no vbo support before vbo's use new VertexAttribute type.
+;;          ((c-lambda () bool 
+;;             "___result = glewIsSupported(\"GL_VERSION_2_0\");")))
+    (set! fbo? 
+          ((c-lambda () bool 
+             "___result = (glewGetExtension(\"GL_EXT_framebuffer_object\") == GL_TRUE);"))))
   ((c-lambda () void #<<INIT_GL_CONTEXT_END
 
 // todo: set these gl state parameters once in an inititialization phase.
@@ -34,6 +44,7 @@ glEnable(GL_TEXTURE_2D);
 glEnable(GL_DEPTH_TEST);						   
 glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 glShadeModel(GL_SMOOTH);
+glEnable(GL_CULL_FACE);
 CHECK_FOR_GL_ERROR();
 
 INIT_GL_CONTEXT_END
@@ -48,35 +59,32 @@ INIT_GL_CONTEXT_END
   (gl-viewing-volume (Projection-c-matrix (Camera-proj (Canvas3D-camera can))))
   (with-access ctx (GLContext num-lights)
     (set! num-lights 0))
-  (gl-setup-lights ctx (Canvas3D-scene can))
-  (gl-render-scene ctx (Canvas3D-scene can))
-  )
-
+  (gl-setup-lights! ctx (Canvas3D-scene can))
+  (gl-render-scene! ctx (Canvas3D-scene can)))
 
 ;; Scene rendering
-(define-generic (gl-render-scene ctx (node Scene))
+(define-generic (gl-render-scene! ctx (node Scene))
   (error "Unsupported scene node"))
 
-(define-method (gl-render-scene ctx (node SceneLeaf))
-  #f)
+(define-method (gl-render-scene! ctx (node SceneLeaf))
+  (values))
 
-(define-method (gl-render-scene ctx (node SceneNode))
+(define-method (gl-render-scene! ctx (node SceneNode))
   (do ([children (SceneNode-children node) (cdr children)])
       ((null? children))
-    (gl-render-scene ctx (car children))))
+    (gl-render-scene! ctx (car children))))
 
-(define-method (gl-render-scene ctx (node TransformationNode))
+(define-method (gl-render-scene! ctx (node TransformationNode))
   (gl-push-transformation (TransformationNode-transformation node))
   (call-next-method) ;; i.e., on SceneNode
   (gl-pop-transformation))
 
 ;; render bones
-(define-method (gl-render-scene ctx (node BoneNode))
+(define-method (gl-render-scene! ctx (node BoneNode))
  #f)
   ;; (gl-push-transformation (BoneNode-transformation node))
   ;; (call-next-method) ;; i.e., on SceneNode
   ;; (gl-pop-transformation))
-
 
 (define-generic (gl-render-mesh ctx (mesh Object))
   (error "Unsupported mesh type"))
@@ -91,57 +99,114 @@ INIT_GL_CONTEXT_END
                        r]
                       [(pair? l)
                        (visit (cdr l) (f r (car l)))]
-                      [(error "invalid list")]))])
+                      [else (error "Invalid list")]))])
     (visit l n)))
 
-
-(define (update-animation mesh)
+(define (update-animation ctx mesh)
   (with-access mesh (AnimatedMesh 
-                     indices
-                     vertices
-                     normals
                      bind-pose-vertices 
                      bind-pose-normals
                      bones)
-    (if (foldl (lambda (b r) (or b r))
-               #f
-               (map (lambda (b) (BoneNode-dirty b))
-                    bones)) ;; if at least one bone is dirty ... prettier code needed!
-        (begin
-          (init-skin-mesh vertices normals)
+    (if (foldl (lambda (b r) (or b r)) #f
+               (map 
+                (lambda (b) (BoneNode-dirty b))
+                bones)) ;; if at least one bone is dirty ... prettier code needed!
+        (let ([gl-mesh (fetch-gl-mesh ctx mesh)])
+          (init-skin-mesh gl-mesh)
           (map (lambda (b) 
                  (with-access b (BoneNode acc-transformation dirty)
                    (set! dirty #f)
                    (set-gl-matrix! acc-transformation)
                    (set-gl-rotation-matrix! acc-transformation)
-                   (skin-mesh bind-pose-vertices
-                              bind-pose-normals
-                              vertices
-                              normals
+                   (skin-mesh gl-mesh
+                              (VertexAttribute-data bind-pose-vertices)
+                              (VertexAttribute-data bind-pose-normals)
                               (BoneNode-c-weights b))))
                bones)
           #t)
         #f)))
 
 (define-method (gl-render-mesh ctx (mesh AnimatedMesh))
-  (update-animation mesh)
+  (update-animation ctx mesh)
   (call-next-method))
 
 (define (fetch-texture ctx texture)
   (with-access ctx (GLContext textures)
     (if texture
-        (let ([tid (gl-lookup-texture-id ctx texture)])
+        (let ([tid (table-ref textures texture #f)])
           (if tid
               tid
-            (let ([tid (gl-make-texture texture)])
-              (set! textures (cons (cons texture tid) textures))
-              tid)))
+              (let ([tid (gl-make-texture texture)])
+                (table-set! textures texture tid) ;;(cons (cons texture tid) textures))
+                tid)))
         0)))
 
+(c-define-type GLMesh (struct "GLMesh"))
+
+(define (gl-attrib-type-id attr)
+  (cond
+    [(eqv? attr 'uint8)
+     0]
+    [(eqv? attr 'uint16)
+     1]
+    [(eqv? attr 'uint32)
+     2]
+    [(eqv? attr 'int16)
+     3]
+    [(eqv? attr 'int32)
+     4]
+    [(eqv? attr 'float32)
+     5]
+    [else (error "Unsupported vertex attribute type")]))
+
+(define (make-gl-mesh mesh)
+  (with-access mesh (Mesh indices vertices normals uvs colors)
+    (let ([gl-mesh 
+           ((c-lambda () GLMesh
+              "___result_voidstar = new GLMesh(make_gl_mesh());"))])
+      (with-access indices (VertexAttribute elm-type elm-count data)
+        ((c-lambda (GLMesh int int (pointer void)) void
+           "___arg1.indices = make_gl_attribute(gl_attrib_types[___arg2], 1, ___arg3, ___arg4);") 
+         gl-mesh (gl-attrib-type-id elm-type) elm-count data))
+
+      (with-access vertices (VertexAttribute elm-type elm-size elm-count data)
+        ((c-lambda (GLMesh int int int (pointer void)) void
+           "___arg1.vertices = make_gl_attribute(gl_attrib_types[___arg2], ___arg3, ___arg4, ___arg5);") 
+         gl-mesh (gl-attrib-type-id elm-type) elm-size elm-count data))
+
+      (if normals
+          (with-access normals (VertexAttribute elm-type elm-size elm-count data)
+            ((c-lambda (GLMesh int int int (pointer void)) void
+               "___arg1.normals = make_gl_attribute(gl_attrib_types[___arg2], ___arg3, ___arg4, ___arg5);")
+             gl-mesh (gl-attrib-type-id elm-type) elm-size elm-count data)))
+
+      (if uvs
+          (with-access uvs (VertexAttribute elm-type elm-size elm-count data)
+            ((c-lambda (GLMesh int int int (pointer void)) void
+               "___arg1.uvs = make_gl_attribute(gl_attrib_types[___arg2], ___arg3, ___arg4, ___arg5);")
+             gl-mesh (gl-attrib-type-id elm-type) elm-size elm-count data)))
+      
+      (if colors
+          (with-access colors (VertexAttribute elm-type elm-size elm-count data)
+            ((c-lambda (GLMesh int int int (pointer void)) void
+               "___arg1.colors = make_gl_attribute(gl_attrib_types[___arg2], ___arg3, ___arg4, ___arg5);")
+             gl-mesh (gl-attrib-type-id elm-type) elm-size elm-count data)))
+      gl-mesh)))
+
+(define (fetch-gl-mesh ctx mesh)
+  (with-access ctx (GLContext meshes)
+    (let ([gl-mesh (table-ref meshes mesh #f)])
+      (if gl-mesh
+          gl-mesh
+          (begin
+            (set! gl-mesh (make-gl-mesh mesh))
+            (table-set! meshes mesh gl-mesh)
+            gl-mesh)))))
+
 (define-method (gl-render-mesh ctx (mesh Mesh))
-  (with-access mesh (Mesh indices vertices normals uvs texture)
+  (with-access mesh (Mesh indices vertices normals uvs colors texture)
       (let ([tid (fetch-texture ctx texture)])
-        (gl-apply-mesh indices vertices normals uvs tid))))
+        (gl-apply-mesh (fetch-gl-mesh ctx mesh) tid))))
 
 (define (fetch-vbo ctx db index? usage)
   (let ([vbo-id (gl-lookup-vbo-id ctx db)])
@@ -155,32 +220,34 @@ INIT_GL_CONTEXT_END
 (define-method (gl-render-mesh-vbo ctx (mesh AnimatedMesh))
   (let ([updated (update-animation mesh)])
     
-    (with-access mesh (Mesh indices vertices normals uvs texture)
+    (with-access mesh (Mesh indices vertices normals uvs colors texture)
       (let ([index-vbo (fetch-vbo ctx indices #t 0)]
             [vertex-vbo (fetch-vbo ctx vertices #f 1)]
             [normal-vbo (fetch-vbo ctx normals #f 1)]
             [uv-vbo (fetch-vbo ctx uvs #f 0)]
+            [colors-vbo (fetch-vbo ctx colors #f 0)]
             [tid (fetch-texture ctx texture)])
         (if updated
             (begin (gl-update-vbo vertex-vbo vertices)
                    (gl-update-vbo normal-vbo normals)))
-        (gl-apply-mesh-vbo index-vbo vertex-vbo normal-vbo uv-vbo tid indices)))))
+        (gl-apply-mesh-vbo index-vbo vertex-vbo normal-vbo uv-vbo colors-vbo tid indices)))))
 
 (define-method (gl-render-mesh-vbo ctx (mesh Mesh))
-  (with-access mesh (Mesh indices vertices normals uvs texture)
+  (with-access mesh (Mesh indices vertices normals uvs colors texture)
     (let ([index-vbo (fetch-vbo ctx indices #t 0)]
           [vertex-vbo (fetch-vbo ctx vertices #f 0)]
           [normal-vbo (fetch-vbo ctx normals #f 0)]
           [uv-vbo (fetch-vbo ctx uvs #f 0)]
+          [colors-vbo (fetch-vbo ctx colors #f 0)]
           [tid (fetch-texture ctx texture)])
-      (gl-apply-mesh-vbo index-vbo vertex-vbo normal-vbo uv-vbo tid indices))))
+      (gl-apply-mesh-vbo index-vbo vertex-vbo normal-vbo uv-vbo colors-vbo tid indices))))
   
-(define-method (gl-render-scene ctx (node MeshLeaf))
+(define-method (gl-render-scene! ctx (node MeshLeaf))
   (if (GLContext-vbo? ctx)
       (gl-render-mesh-vbo ctx (MeshLeaf-mesh node))
       (gl-render-mesh ctx (MeshLeaf-mesh node))))
 
-(define-method (gl-render-scene ctx (node ShaderNode))
+(define-method (gl-render-scene! ctx (node ShaderNode))
   (let ([shader-tag (ShaderNode-tags node 0)])
     (with-access ctx (GLContext shaders)
       
@@ -193,34 +260,33 @@ INIT_GL_CONTEXT_END
                 [vert (cadr shader)]
                 [frag (caddr shader)])
            (set! shaders (cons (cons shader-tag
-                                    (gl-make-program vert frag)) 
+                                     (gl-make-program vert frag)) 
                                shaders)))])
       (call-next-method))))
-            
-            
-(define-generic (gl-setup-lights ctx (node Object))
+                        
+(define-generic (gl-setup-lights! ctx (node Object))
   (error "Unsupported scene node"))
 
-(define-generic (gl-setup-light ctx (light Light))
+(define-generic (gl-setup-light! ctx (light Light))
   (error "Unsupported scene node"))
 
-(define-method (gl-setup-lights ctx (node SceneNode))
+(define-method (gl-setup-lights! ctx (node SceneNode))
   (do ([children (SceneNode-children node) (cdr children)])
       ((null? children))
-    (gl-setup-lights ctx (car children))))
+    (gl-setup-lights! ctx (car children))))
 
-(define-method (gl-setup-lights ctx (node TransformationNode))
+(define-method (gl-setup-lights! ctx (node TransformationNode))
   (gl-push-transformation (TransformationNode-transformation node))
   (call-next-method) ;; i.e., on SceneNode
   (gl-pop-transformation))
 
-(define-method (gl-setup-lights ctx (node Scene))
-  #f)
+(define-method (gl-setup-lights! ctx (node Scene))
+  (values))
 
-(define-method (gl-setup-lights ctx (node LightLeaf))
-  (gl-setup-light ctx (LightLeaf-light node)))
+(define-method (gl-setup-lights! ctx (node LightLeaf))
+  (gl-setup-light! ctx (LightLeaf-light node)))
 
-(define-method (gl-setup-light ctx (light PointLight))
+(define-method (gl-setup-light! ctx (light PointLight))
   (with-access ctx (GLContext num-lights)
     (with-access light (PointLight ambient diffuse specular)
       ((c-lambda (int scheme-object scheme-object scheme-object) void 
@@ -330,6 +396,9 @@ const GLint gl_color_formats[]          = {GL_RGB, GL_RGBA, GL_BGR, GL_BGRA};
 const GLint gl_internal_color_formats[] = {GL_RGB, GL_RGBA, GL_RGB, GL_RGBA};
 const GLint gl_wrappings[]              = {GL_CLAMP, GL_REPEAT};
 const GLint gl_buffer_usage[]           = {GL_STATIC_DRAW, GL_DYNAMIC_DRAW};
+const GLint gl_attrib_types[]           = {GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT, 
+                                           GL_UNSIGNED_INT, GL_SHORT, GL_INT, 
+                                           GL_FLOAT, GL_DOUBLE};
 
 float m[16] = {1.0, 0.0, 0.0, 0.0,
                0.0, 1.0, 0.0, 0.0,
@@ -339,6 +408,32 @@ float m[16] = {1.0, 0.0, 0.0, 0.0,
 float m_rot[9] = {1.0, 0.0, 0.0,
                   0.0, 1.0, 0.0,
                   0.0, 0.0, 1.0};
+
+struct GLAttribute {
+  GLint gl_type;
+  GLint elm_size;
+  GLint elm_count;
+  void* data;
+};
+
+GLAttribute make_gl_attribute(GLint gl_type, GLint elm_size, GLint elm_count, void* data) {
+    GLAttribute attr;
+    attr.gl_type = gl_type;
+    attr.elm_size = elm_size;
+    attr.elm_count = elm_count;
+    attr.data = data;
+    return attr;
+}
+
+struct GLMesh {
+  GLAttribute indices, vertices, normals, uvs, colors;
+};
+
+GLMesh make_gl_mesh() {
+  GLMesh m;
+  memset(&m, 0x0, sizeof(GLMesh));
+  return m;
+}
 
 c-declare-end
 )
@@ -531,10 +626,10 @@ gl-make-texture-end
 
 
 (define gl-apply-mesh-vbo
-  (c-lambda (int int int int int DataBlock) void
+  (c-lambda (int int int int int int DataBlock) void
 #<<apply-mesh-vbo-end
 
-glBindTexture(GL_TEXTURE_2D, ___arg5);
+glBindTexture(GL_TEXTURE_2D, ___arg6);
 
 glBindBuffer(GL_ARRAY_BUFFER, ___arg2);  
 glEnableClientState(GL_VERTEX_ARRAY);
@@ -556,14 +651,30 @@ if (___arg4) {
   CHECK_FOR_GL_ERROR();
 }
 
+if (___arg5) {
+  glEnableClientState(GL_COLOR_ARRAY); 
+  glBindBuffer(GL_ARRAY_BUFFER, ___arg5);
+  glColorPointer(3, GL_FLOAT, 0, 0);
+  glEnable(GL_COLOR_MATERIAL);
+  CHECK_FOR_GL_ERROR();
+}
+else {
+    const float c_amb[4] = {.8f, .8f, .8f, 1.0f};
+    const float c_diff[4] = {.8f, .8f, .8f, 1.0f};
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, c_amb);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, c_diff);
+    glDisable(GL_COLOR_MATERIAL);
+}
+
 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ___arg1);  
-glDrawElements(GL_TRIANGLES, ___arg6->GetSize(), GL_UNSIGNED_INT, 0);
+glDrawElements(GL_TRIANGLES, ___arg7->GetSize(), GL_UNSIGNED_INT, 0);
 CHECK_FOR_GL_ERROR();
 
 glDisableClientState(GL_VERTEX_ARRAY);
 glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 glDisableClientState(GL_NORMAL_ARRAY);
 glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+glDisableClientState(GL_COLOR_ARRAY);
 glBindTexture(GL_TEXTURE_2D, 0);
 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -571,48 +682,121 @@ glBindBuffer(GL_ARRAY_BUFFER, 0);
 apply-mesh-vbo-end
 ))
     
-
 (define gl-apply-mesh
-  (c-lambda (DataBlock DataBlock DataBlock DataBlock int) void
+  (c-lambda (GLMesh int) void
 #<<apply-mesh-end
 
-
-if (___arg5) {
-  //printf("binding tid: %x\n", ___arg5);
-  glBindTexture(GL_TEXTURE_2D, ___arg5);
+GLMesh mesh = ___arg1;
+if (___arg2) {
+  //printf("binding tid: %x\n", ___arg2);
+  glBindTexture(GL_TEXTURE_2D, ___arg2);
 }
 else {
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+GLAttribute vs = mesh.vertices;
 glEnableClientState(GL_VERTEX_ARRAY);
-glVertexPointer(___arg2->GetDimension(), ___arg2->GetType(), 0, ___arg2->GetVoidDataPtr());
+glVertexPointer(vs.elm_size, vs.gl_type, 0, vs.data);
 CHECK_FOR_GL_ERROR();
 
-if (___arg3) {
-  //printf("using normals: %x\n", ___arg3);
+GLAttribute ns = mesh.normals;
+if (ns.data) {
   glEnableClientState(GL_NORMAL_ARRAY);
-  glNormalPointer(GL_FLOAT, 0, ___arg3->GetVoidDataPtr());
+  glNormalPointer(ns.gl_type, 0, ns.data);
 }
 
-if (___arg4) {
+GLAttribute uvs = mesh.uvs;
+if (uvs.data) {
   //printf("using uvs: %x\n", ___arg4);
   glClientActiveTexture(GL_TEXTURE0);
   glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-  glTexCoordPointer(___arg4->GetDimension(), GL_FLOAT, 0, ___arg4->GetVoidDataPtr());
+  glTexCoordPointer(uvs.elm_size, uvs.gl_type, 0, uvs.data);
 }
 
-glDrawElements(GL_TRIANGLES, ___arg1->GetSize(), ___arg1->GetType(), ___arg1->GetVoidData());
+GLAttribute cols = mesh.colors;
+if (cols.data) {
+  //printf("using colors: %x\n", ___arg5);
+  glEnableClientState(GL_COLOR_ARRAY);
+  glColorPointer(cols.elm_size, cols.gl_type, 0, cols.data);
+  glEnable(GL_COLOR_MATERIAL);
+}
+else {
+    const float c_amb[4] = {.8f, .8f, .8f, 1.0f};
+    const float c_diff[4] = {.8f, .8f, .8f, 1.0f};
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, c_amb);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, c_diff);
+}
+
+GLAttribute is = mesh.indices;
+glDrawElements(GL_TRIANGLES, is.elm_count, is.gl_type, is.data);
 CHECK_FOR_GL_ERROR();
 
+glDisable(GL_COLOR_MATERIAL);
 glDisableClientState(GL_VERTEX_ARRAY);
 glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 glDisableClientState(GL_NORMAL_ARRAY);
-glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+glDisableClientState(GL_COLOR_ARRAY);
 glBindTexture(GL_TEXTURE_2D, 0);
 
 apply-mesh-end
 ))
+
+;; (define gl-apply-mesh
+;;   (c-lambda (DataBlock DataBlock DataBlock DataBlock DataBlock int) void
+;; #<<apply-mesh-end
+
+
+;; if (___arg6) {
+;;   //printf("binding tid: %x\n", ___arg6);
+;;   glBindTexture(GL_TEXTURE_2D, ___arg6);
+;; }
+;; else {
+;;   glBindTexture(GL_TEXTURE_2D, 0);
+;; }
+
+;; glEnableClientState(GL_VERTEX_ARRAY);
+;; glVertexPointer(___arg2->GetDimension(), ___arg2->GetType(), 0, ___arg2->GetVoidDataPtr());
+;; CHECK_FOR_GL_ERROR();
+
+;; if (___arg3) {
+;;   //printf("using normals: %x\n", ___arg3);
+;;   glEnableClientState(GL_NORMAL_ARRAY);
+;;   glNormalPointer(GL_FLOAT, 0, ___arg3->GetVoidDataPtr());
+;; }
+
+;; if (___arg4) {
+;;   //printf("using uvs: %x\n", ___arg4);
+;;   glClientActiveTexture(GL_TEXTURE0);
+;;   glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+;;   glTexCoordPointer(___arg4->GetDimension(), GL_FLOAT, 0, ___arg4->GetVoidDataPtr());
+;; }
+
+;; if (___arg5) {
+;;   //printf("using colors: %x\n", ___arg5);
+;;   glEnableClientState(GL_COLOR_ARRAY);
+;;   glColorPointer(___arg5->GetDimension(), GL_FLOAT, 0, ___arg5->GetVoidDataPtr());
+;;   glEnable(GL_COLOR_MATERIAL);
+;; }
+;; else {
+;;     const float c_amb[4] = {.8f, .8f, .8f, 1.0f};
+;;     const float c_diff[4] = {.8f, .8f, .8f, 1.0f};
+;;     glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, c_amb);
+;;     glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, c_diff);
+;; }
+
+;; glDrawElements(GL_TRIANGLES, ___arg1->GetSize(), ___arg1->GetType(), ___arg1->GetVoidData());
+;; CHECK_FOR_GL_ERROR();
+
+;; glDisable(GL_COLOR_MATERIAL);
+;; glDisableClientState(GL_VERTEX_ARRAY);
+;; glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+;; glDisableClientState(GL_NORMAL_ARRAY);
+;; glDisableClientState(GL_COLOR_ARRAY);
+;; glBindTexture(GL_TEXTURE_2D, 0);
+
+;; apply-mesh-end
+;; ))
 
 (define (gl-push-transformation trans)
   (set-gl-matrix! trans)
@@ -631,7 +815,7 @@ apply-mesh-end
 
 (define gl-clear
   (c-lambda () void
-    "glClearColor(.5,.5,.5,1);
+    "glClearColor(.8,1.0,1.0,1.0);
      glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
      CHECK_FOR_GL_ERROR();"))
 
@@ -654,12 +838,14 @@ GL-VIEWING-VOLUME-END
 ;; (maybe this kind of skinning should be moved to animation.scm since
 ;; it is not gl specific.
 (define init-skin-mesh
-  (c-lambda (DataBlock  ;; dest-verts
-             DataBlock) ;; dest-norms
-      void
+  (c-lambda (GLMesh) void
 #<<c-init-skin-mesh-end
-memset(___arg1->GetVoidData(), 0x0, sizeof(float) * ___arg1->GetSize() * ___arg1->GetDimension());
-memset(___arg2->GetVoidData(), 0x0, sizeof(float) * ___arg2->GetSize() * ___arg2->GetDimension());
+
+GLAttribute verts = ___arg1.vertices;
+GLAttribute norms = ___arg1.normals;
+
+memset(verts.data, 0x0, sizeof(float) * verts.elm_size * verts.elm_count);
+memset(norms.data, 0x0, sizeof(float) * norms.elm_size * norms.elm_count);
 c-init-skin-mesh-end
 ))
 
@@ -683,20 +869,23 @@ c-declare-end
 )
 
 (define skin-mesh
-  (c-lambda (DataBlock ;; src-verts
-             DataBlock ;; src-norms
-             DataBlock ;; dest-verts
-             DataBlock ;; dest-norms
+  (c-lambda (GLMesh
+             (pointer void) ;; src-verts
+             (pointer void) ;; src-norms
              Weights)  ;; vertex weights
       void 
 #<<c-skin-mesh-end
-float* src_verts = (float*)___arg1->GetVoidData();
-float* src_norms = (float*)___arg2->GetVoidData();
-float* dest_verts = (float*)___arg3->GetVoidData();
-float* dest_norms = (float*)___arg4->GetVoidData();
 
-vector<pair<unsigned int, float> >::iterator itr = ___arg5->begin();
-for (; itr != ___arg5->end(); ++itr) {
+GLAttribute verts = ___arg1.vertices;
+GLAttribute norms = ___arg1.normals;
+
+float* src_verts = (float*)___arg2;
+float* src_norms = (float*)___arg3;
+float* dest_verts = (float*)verts.data;
+float* dest_norms = (float*)norms.data;
+
+vector<pair<unsigned int, float> >::iterator itr = ___arg4->begin();
+for (; itr != ___arg4->end(); ++itr) {
     unsigned int index = itr->first;
     float weight = itr->second; 
  
@@ -756,6 +945,9 @@ UPDATE_C_MATRIX_END
 ;; the view matrix is the inverse matrix of the camera transformation
 (define (set-gl-view-matrix! transformation)
   (with-access transformation (Transformation translation rotation)
+    ;; (display "cam trans: ")
+    ;; (display translation)
+    ;; (newline)
     (with-access rotation (Quaternion w x y z)
       ((c-lambda (float float float float) void
 #<<UPDATE_C_MATRIX_END
@@ -798,7 +990,6 @@ UPDATE_TRANSFORMATION_POS_END
      (vector-ref translation 0)
      (vector-ref translation 1)
      (vector-ref translation 2))))
-
   
 (define (set-gl-matrix! transformation)
   (with-access transformation (Transformation translation rotation scaling pivot)

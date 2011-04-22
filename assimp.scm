@@ -2,12 +2,12 @@
 #include <assimp.hpp>      // C++ importer interface
 #include <aiScene.h>       // Output data structure
 #include <aiPostProcess.h> // Post processing flags
-#include <Resources/DataBlock.h>
+//#include <Resources/DataBlock.h>
 #include <cstdio>
 
 #include <vector>
 
-using namespace OpenEngine::Resources;
+//using namespace OpenEngine::Resources;
 using namespace std;
 void readMaterials(aiMaterial**, unsigned int);
 void readMeshes(aiMesh**, unsigned int);
@@ -19,7 +19,7 @@ typedef vector<pair<unsigned int,float> > Weights;
 c-declare-end
 )
 
-(c-define-type DataBlock (pointer "IDataBlock"))
+;;(c-define-type DataBlock (pointer "IDataBlock"))
 (c-define-type Weights (pointer "Weights"))
 
 (define *current-file-dir* #f)
@@ -171,9 +171,14 @@ c-declare-end
 
 ;; --- geometry loading ---
 
-(c-define (add-db db)
-    (DataBlock) void "add_db_scm" ""
-    (set! *loaded-blocks* (cons db *loaded-blocks*)))
+(c-define (add-vertex-attribute type elm-size elm-count data)
+    (char-string int int (pointer void)) void "add_vertex_attribute_scm" ""
+    (set! *loaded-blocks* (cons (instantiate VertexAttribute
+                                    :elm-type (string->symbol type)
+                                    :elm-size elm-size
+                                    :elm-count elm-count
+                                    :data data)
+                                *loaded-blocks*)))
 
 (c-define (add-false-db)
     () void "add_false_db_scm" ""
@@ -303,7 +308,7 @@ c-declare-end
     (char-string) void "append_material_scm" ""
     (set! *loaded-materials* 
           (cons (instantiate Texture
-                    :image (load-bitmap
+                    :image (load-image
                             (string-append *current-file-dir* path)))
                 *loaded-materials*)))
 

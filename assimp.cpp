@@ -2,14 +2,14 @@
 #include <aiScene.h>       // Output data structure
 #include <aiPostProcess.h> // Post processing flags
 
-#include <Resources/DataBlock.h>
+// #include <Resources/DataBlock.h>
 #include <cstdio>
 
 #include <map>
 #include <vector>
 #include <string>
 
-using namespace OpenEngine::Resources;
+// using namespace OpenEngine::Resources;
 using namespace std;
 
 
@@ -20,7 +20,7 @@ using namespace std;
 map<string, unsigned int> bones;            // bones referenced by animations
 map<string, unsigned int> transformations;  // transformations referenced by animations
 
-void add_db_scm(IDataBlock* db);
+void add_vertex_attribute_scm(char* type, int elm_size, int elm_count, void* data);
 void add_false_db_scm();
 void add_mesh_scm(int i);
 void set_pos_scm(float x, float y, float z);
@@ -145,7 +145,7 @@ void readMeshes(aiMesh** ms, unsigned int size) {
     unsigned int i, j;
     for (i = 0; i < size; ++i) {
         aiMesh* m = ms[size-i-1]; // iterate in reverse order since we prepend to a scheme list
-
+        
         if (m->HasBones()) {
             for (j = 0; j < m->mNumBones; ++j) {
                 aiBone* bone = m->mBones[j];
@@ -155,7 +155,7 @@ void readMeshes(aiMesh** ms, unsigned int size) {
                 for (unsigned int k = 0; k < bone->mNumWeights; ++k) {
                     (*weights)[k] = make_pair(ws[k].mVertexId, ws[k].mWeight);
                 }
-
+                
                 // construct a transformation node
                 aiMatrix4x4 t = bone->mOffsetMatrix;
                 aiVector3D pos, scl;
@@ -173,101 +173,140 @@ void readMeshes(aiMesh** ms, unsigned int size) {
         }
 
         // read vertices
-        unsigned int num = m->mNumVertices;
+        unsigned int count = m->mNumVertices;
         aiVector3D* src = m->mVertices;
-        float* dest = new float[3 * num];
-        for (j = 0; j < num; ++j) {
-            dest[3*j]   = src[j].x;
-            dest[3*j+1] = src[j].y;
-            dest[3*j+2] = src[j].z;
+        float* verts = new float[3 * count];
+        for (j = 0; j < count; ++j) {
+            verts[3*j]   = src[j].x;
+            verts[3*j+1] = src[j].y;
+            verts[3*j+2] = src[j].z;
         }
-        DataBlock<3,float>* verts = new DataBlock<3,float>(num, dest);
+        // DataBlock<3,float>* verts = new DataBlock<3,float>(count, dest);
 
-        DataBlock<3,float>* norms = NULL;
+        // DataBlock<3,float>* norms = NULL;
+        float* norms = NULL;
+
         if (m->HasNormals()) {
             // read normals
             src = m->mNormals;
-            dest = new float[3 * num];
-            for (j = 0; j < num; ++j) {
-                dest[j*3]   = src[j].x;
-                dest[j*3+1] = src[j].y;
-                dest[j*3+2] = src[j].z;
+            norms = new float[3 * count];
+            for (j = 0; j < count; ++j) {
+                norms[j*3]   = src[j].x;
+                norms[j*3+1] = src[j].y;
+                norms[j*3+2] = src[j].z;
             }
-            norms = new DataBlock<3,float>(num, dest);
+            // norms = new DataBlock<3,float>(count, dest);
         }
 
-        IDataBlock* uvs = NULL;
+        // IDataBlock* uvs = NULL;
+        float* uvs = NULL;
+        unsigned int dim = 0;
         if (m->GetNumUVChannels() > 0) {
             unsigned int j = 0;
             // read texture coordinates
-            unsigned int dim = m->mNumUVComponents[j];
+            dim = m->mNumUVComponents[j];
             src = m->mTextureCoords[j];
-            dest = new float[dim * num];
-            for (unsigned int k = 0; k < num; ++k) {
+            uvs = new float[dim * count];
+            for (unsigned int k = 0; k < count; ++k) {
                 for (unsigned int l = 0; l < dim; ++l) {
-                     dest[k*dim+l] = src[k][l];
+                     uvs[k*dim+l] = src[k][l];
                 }
             }
-            switch (dim) {
-            case 2:
-                uvs = new DataBlock<2,float>(num, dest);
-                break;
-            case 3:
-                uvs = new DataBlock<3,float>(num, dest);
-                break;
-            default: 
-                delete dest;
-            };
+            // switch (dim) {
+            // case 2:
+            //     uvs = new DataBlock<2,float>(count, dest);
+            //     break;
+            // case 3:
+            //     uvs = new DataBlock<3,float>(count, dest);
+            //     break;
+            // default: 
+            //     delete dest;
+            // };
         }
 
         // Float3DataBlockPtr col;
         // if (m->GetNumColorChannels() > 0) {
         //     aiColor4D* c = m->mColors[0];
-        //     dest = new float[3 * num];
-        //     for (j = 0; j < num; ++j) {
+        //     dest = new float[3 * count];
+        //     for (j = 0; j < count; ++j) {
         //         dest[j*3]   = c[j].r;
         //         dest[j*3+1] = c[j].g;
         //         dest[j*3+2] = c[j].b;
         //     }
-        //     col = Float3DataBlockPtr(new DataBlock<3,float>(num, dest));
+        //     col = Float3DataBlockPtr(new DataBlock<3,float>(count, dest));
         // }
 
         // assume that we only have triangles (see triangulate option).
-        unsigned int* indexArr = new unsigned int[m->mNumFaces * 3];
-        for (j = 0; j < m->mNumFaces; ++j) {
-            aiFace src = m->mFaces[j];
-            indexArr[j*3]   = src.mIndices[0];
-            indexArr[j*3+1] = src.mIndices[1];
-            indexArr[j*3+2] = src.mIndices[2];
+        unsigned int index_count = m->mNumFaces * 3;
+        void* indices;
+        char index_type[10]; 
+        if (count <= 0xFFFF) {
+            unsigned short* indices16 = new unsigned short[index_count];
+            for (j = 0; j < m->mNumFaces; ++j) {
+                aiFace src = m->mFaces[j];
+                indices16[j*3]   = src.mIndices[0];
+                indices16[j*3+1] = src.mIndices[1];
+                indices16[j*3+2] = src.mIndices[2];
+            }
+            indices = indices16;
+            strcpy(index_type, "uint16");
         }
-        Indices* indices = new Indices(m->mNumFaces*3, indexArr);
+        else {
+            unsigned int* indices32 = new unsigned int[index_count];
+            for (j = 0; j < m->mNumFaces; ++j) {
+                aiFace src = m->mFaces[j];
+                indices32[j*3]   = src.mIndices[0];
+                indices32[j*3+1] = src.mIndices[1];
+                indices32[j*3+2] = src.mIndices[2];
+            }
+            indices = indices32;
+            strcpy(index_type, "uint32");
+            // index_type = "uint32";
+        }
+        // Indices* indices = new Indices(m->mNumFaces*3, indexArr);
 
+        char f32_type[10];
+        strcpy(f32_type, "float32");
 
         if (m->HasBones()) {
             // add a copy of vertices and normals for original bind pose use.
             // @todo if more attributes need to be animated, they should also be copied.
-            dest = new float[3 * num];
-            memcpy(dest, verts->GetData(), sizeof(float) * 3 * num);
-            DataBlock<3,float>* verts_copy = new DataBlock<3,float>(num, dest);
+            float* verts_copy = new float[3 * count];
+            memcpy(verts_copy, verts, sizeof(float) * 3 * count);
+            // DataBlock<3,float>* verts_copy = new DataBlock<3,float>(count, dest);
 
-            dest = new float[3 * num];
-            memcpy(dest, norms->GetData(), sizeof(float) * 3 * num);
-            DataBlock<3,float>* norms_copy = new DataBlock<3,float>(num, dest);
+            float* norms_copy = new float[3 * count];
+            memcpy(norms_copy, norms, sizeof(float) * 3 * count);
+            // DataBlock<3,float>* norms_copy = new DataBlock<3,float>(count, dest);
         
-            add_db_scm(norms_copy);
-            add_db_scm(verts_copy);
+            // add_db_scm(norms_copy);
+            // add_db_scm(verts_copy);
             
-            add_db_scm(uvs);
-            add_db_scm(norms);
-            add_db_scm(verts);
-            add_db_scm(indices);
+            // add_db_scm(uvs);
+            // add_db_scm(norms);
+            // add_db_scm(verts);
+            // add_db_scm(indices);
+
+            add_vertex_attribute_scm(f32_type, 3, count, norms_copy);
+            add_vertex_attribute_scm(f32_type, 3, count, verts_copy);
+            
+            add_vertex_attribute_scm(f32_type, dim, count, uvs);
+            add_vertex_attribute_scm(f32_type, 3, count, norms);
+            add_vertex_attribute_scm(f32_type, 3, count, verts);
+
+            add_vertex_attribute_scm(index_type, 1, index_count, indices);
             add_animated_mesh_scm(m->mMaterialIndex, m->mNumBones);
         }
         else {
-            add_db_scm(uvs);
-            add_db_scm(norms);
-            add_db_scm(verts);
-            add_db_scm(indices);
+            add_vertex_attribute_scm(f32_type, dim, count, uvs);
+            add_vertex_attribute_scm(f32_type, 3, count, norms);
+            add_vertex_attribute_scm(f32_type, 3, count, verts);
+
+            add_vertex_attribute_scm(index_type, 1, index_count, indices);
+            // add_vertex_attribute_scm(uvs);
+            // add_vertex_attribute_scm(norms);
+            // add_vertex_attribute_scm(verts);
+            // add_vertex_attribute_scm(indices);
             add_mesh_scm(m->mMaterialIndex);
         }
     }
