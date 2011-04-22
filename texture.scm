@@ -23,19 +23,19 @@ c-declare-end
 		   c-data))))
   (call-next-method))
 
-(define *loaded-bitmap* #f)
+(define *loaded-image* #f)
 
 (c-define (set-bitmap width height format data)
     (int int char-string (pointer char)) void "set_bitmap_scm" ""
-    (set! *loaded-bitmap* (instantiate Image 
+    (set! *loaded-image* (instantiate Image 
                               :width width 
                               :height height 
                               :format (string->symbol format) 
                               :c-data data)))
 
-(define c-load-bitmap
+(define c-load-image
   (c-lambda (char-string) bool
-#<<c-load-bitmap-end
+#<<c-load-image-end
 
 FREE_IMAGE_FORMAT formato = FreeImage_GetFileType(___arg1, 0);
 FIBITMAP* img = FreeImage_Load(formato, ___arg1);
@@ -47,7 +47,6 @@ else {
 // 'uint8   : one channel 8 bit int
 // 'uint16  : one channel 16 bit int
 // 'float32 : one channel 32 bit float
-// 'rgb565  : 16 bit rgb color
 // 'rgb     : 24 bit rgb color
 // 'rgba    : 32 bit rgba color
 // 'rgb32f  : 3 x 32 bit float color  
@@ -124,13 +123,13 @@ else {
     FreeImage_Unload(img);
     ___result = loaded;
 }        
-c-load-bitmap-end
+c-load-image-end
 ))
 
-(define (load-bitmap path)
-  (if (c-load-bitmap path)
-      (let ([bitmap *loaded-bitmap*])
-	(set! *loaded-bitmap* #f)
+(define (load-image path)
+  (if (c-load-image path)
+      (let ([bitmap *loaded-image*])
+	(set! *loaded-image* #f)
 	bitmap)
       #f))
   
