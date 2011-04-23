@@ -184,14 +184,19 @@
        (if key-sym
            (keymap-handle *current-keymap* key-sym state)))))
 
-  (run-glut-loop (lambda ()
+  (run-glut-loop (lambda () 
+                   (render! ctx can)
+                   (glut-swap-buffers))
+                 
+                 (lambda ()
 		   (let* ([t (time-in-seconds)]
 			  [dt (- t last-time)])
 		     (set! last-time t)
 		     (process-modules dt modules)
                      (queue-run *main-queue*)
-                     (render! ctx can)
-                     (bullet-debug-draw)
+                     (if debug-render
+                         (bullet-debug-draw))
+                     
                      (##gc) ;; trigger gc to minimize pause times
                      (thread-sleep! 0.005)
                      ))))

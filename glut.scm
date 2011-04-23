@@ -12,6 +12,7 @@ c-declare-end
 
 (define *glut-initialized* #f)
 (define *glut-idle-function* #f)
+(define *glut-display-function* #f)
 (define *glut-keyboard-function* #f)
 (define *glut-special-function* #f)
 (define *glut-mouse-function* #f)
@@ -63,10 +64,15 @@ c-declare-end
 
 ;; --- end mouse stuff ---
 
+;; (c-define (glut-display-function-callback)
+;;     () void "glut_display_scm_callback" ""
+;;   ;; should we really swap here?
+;;   (glut-swap-buffers))
+
 (c-define (glut-display-function-callback)
     () void "glut_display_scm_callback" ""
-  ;; should we really swap here?
-  (glut-swap-buffers))
+  (and *glut-display-function*
+       (*glut-display-function*)))
 
 (c-define (glut-idle-function-callback)
     () void "glut_idle_scm_callback" ""
@@ -111,7 +117,7 @@ glutIdleFunc(glut_idle_scm_callback);
 
 glutIgnoreKeyRepeat(1);
 glutKeyboardFunc(glut_keyboard_down_scm_callback);
-glutKeyboardFunc(glut_keyboard_up_scm_callback);
+glutKeyboardUpFunc(glut_keyboard_up_scm_callback);
 glutSpecialFunc(glut_special_down_scm_callback);
 glutSpecialUpFunc(glut_special_up_scm_callback);
 glutMouseFunc(glut_mouse_scm_callback);
@@ -141,6 +147,9 @@ glut-make-window-end
 (define (set-glut-idle-function fn)
   (set! *glut-idle-function* fn))
 
+(define (set-glut-display-function fn)
+  (set! *glut-display-function* fn))
+
 (define (set-glut-keyboard-function fn)
   (set! *glut-keyboard-function* fn))
 
@@ -156,8 +165,9 @@ glut-make-window-end
   (c-lambda () void
     "glutPostRedisplay();"))
 
-(define (run-glut-loop fn)
-  (set-glut-idle-function fn)
+(define (run-glut-loop disp-fn idle-fn)
+  (set-glut-display-function disp-fn)
+  (set-glut-idle-function idle-fn)
   ((c-lambda () void "glutMainLoop();")))
 
 (define-class GLUTContext Context
