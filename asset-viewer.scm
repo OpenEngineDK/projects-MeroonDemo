@@ -33,7 +33,9 @@
 (keymap-add-key! *current-keymap* #\esc (lambda (k s)
                                           (exit)))
 
-(let* ([t2 (instantiate TransformationNode :children (list (instantiate CameraLeaf :camera cam)))]
+(let* (
+       [t3 (instantiate TransformationNode :children (list (instantiate CameraLeaf :camera cam)))]
+       [t2 (instantiate TransformationNode :children (list t3))]
        [t1 (instantiate TransformationNode :children (list t2))]
 
        [move-up #f]
@@ -49,7 +51,7 @@
        [move-scale 700.0]
        [rot-scale 1.0]
        )
-  (translate! t2 0. 0. 400.)
+  (translate! t3 0. 0. 400.)
   (scene-add-node! top t1)
   (keymap-add-key! *current-keymap* (list #\w #\a #\s #\d 'up 'down 'left 'right)
                    (lambda (k s)
@@ -69,25 +71,28 @@
   (set! modules 
         (add-module (lambda (dt)
                       (if (or move-up move-down move-left move-right)
-                          (translate! t2
-                                      (+   ; x
-                                       (if move-left (* -1. move-scale dt) 0.0)
-                                       (if move-right (* move-scale dt) 0.0))
-                                      0.0  ; y
-                                      (+   ; z
-                                       (if move-up (* -1. move-scale dt) 0.0)
-                                       (if move-down (* move-scale dt) 0.0))))
+                          (let ([t (rotate-vec
+                                    (vec (+   ; x
+                                          (if move-left (* -1. move-scale dt) 0.0)
+                                          (if move-right (* move-scale dt) 0.0))
+                                         0.0  ; y
+                                         (+   ; z
+                                          (if move-up (* -1. move-scale dt) 0.0)
+                                          (if move-down (* move-scale dt) 0.0)))
+                                    (Transformation-rotation (TransformationNode-transformation t2)))])
+                            
+                          (translate! t1 (vec-ref t 0) (vec-ref t 1) (vec-ref t 2))))
                       (if rot-up
-                          (rotate! t1 (* dt rot-scale) (vec 1. 0. 0.)))
+                          (rotate! t2 (* dt rot-scale) (vec 1. 0. 0.)))
 
                       (if rot-down
-                          (rotate! t1 (* dt rot-scale) (vec -1. 0. 0.)))
+                          (rotate! t2 (* dt rot-scale) (vec -1. 0. 0.)))
 
                       (if rot-left
-                          (rotate! t1 (* dt rot-scale) (vec 0. 1. 0.)))
+                          (rotate! t2 (* dt rot-scale) (vec 0. 1. 0.)))
 
                       (if rot-right
-                          (rotate! t1 (* dt rot-scale) (vec 0. -1. 0.))))
+                          (rotate! t2 (* dt rot-scale) (vec 0. -1. 0.))))
                     modules)))
 
 
