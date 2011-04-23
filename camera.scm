@@ -99,11 +99,11 @@ Matrix<4,4,float> view_m;
 C-DECLARE-END
 )
 
-(c-define (set-vector v x y z)
+(c-define (set-vec v x y z)
     (scheme-object float float float) void "set_vector_scm" ""
-  (vector-set! v 0 x)
-  (vector-set! v 1 y)
-  (vector-set! v 2 z))
+  (vec-set! v 0 x)
+  (vec-set! v 1 y)
+  (vec-set! v 2 z))
 
 ;; x and y in window space [0;1] and z is the target depth value [0;1] 
 (define (unproject cam x y z)
@@ -151,14 +151,14 @@ view_m(2,2) = 1-2*x*x-2*y*y;
 
 SET-VIEW-END
 )
-       (vector-ref translation 0)
-       (vector-ref translation 1)
-       (vector-ref translation 2)
-       (Quaternion-w rotation)
-       (Quaternion-x rotation)
-       (Quaternion-y rotation)
-       (Quaternion-z rotation))))
-  (let ([point (vector 0. 0. 0.)])
+       (vec-ref translation 0)
+       (vec-ref translation 1)
+       (vec-ref translation 2)
+       (quaternion-w rotation)
+       (quaternion-x rotation)
+       (quaternion-y rotation)
+       (quaternion-z rotation))))
+  (let ([point (vec 0. 0. 0.)])
     ((c-lambda (float float float scheme-object) void
 #<<CALC-PROJ-END
 const float x  = ___arg1;

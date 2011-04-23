@@ -74,18 +74,5 @@ get-time-end
                 [to-rot (Transformation-rotation (cdr to-point))]
 		[factor  (/ (- time (car from-point)) (- (car to-point) (car from-point)))])
 	    (with-access target (Transformation translation rotation)
-              (set! translation 
-                    (vector 
-                     (+ (vector-ref from-pos 0) (* factor (- (vector-ref to-pos 0) (vector-ref from-pos 0))))
-                     (+ (vector-ref from-pos 1) (* factor (- (vector-ref to-pos 1) (vector-ref from-pos 1))))
-                     (+ (vector-ref from-pos 2) (* factor (- (vector-ref to-pos 2) (vector-ref from-pos 2))))))
-
-              (set! rotation 
-                    (instantiate Quaternion 
-                        ;; try linear interpolation
-                        :w (+ (* (- 1.0 factor) (Quaternion-w from-rot)) (* factor (Quaternion-w to-rot)))
-                        :x (+ (* (- 1.0 factor) (Quaternion-x from-rot)) (* factor (Quaternion-x to-rot)))
-                        :y (+ (* (- 1.0 factor) (Quaternion-y from-rot)) (* factor (Quaternion-y to-rot)))
-                        :z (+ (* (- 1.0 factor) (Quaternion-z from-rot)) (* factor (Quaternion-z to-rot)))))
-              (quaternion-normalize! rotation))
-)))))
+              (set! translation (vec+ from-pos (vec-scalar* factor (vec- to-pos from-pos))))
+              (set! rotation (quaternion-interp from-rot to-rot factor))))))))

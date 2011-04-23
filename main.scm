@@ -27,7 +27,7 @@
 (define jaw-node
   (instantiate TransformationNode
     :transformation (instantiate Transformation
-                      :pivot (vector 0. 0. -15.))
+                      :pivot (vec 0. 0. -15.))
     :children (list dragon-jaw-model)))
 
 (define dragon
@@ -54,7 +54,7 @@
   (instantiate TransformationNode
       :children (list light)));; dragon)
       ;; :transformation (instantiate Transformation
-      ;;                     :translation (vector -1.0 -1.0 0.0))))
+      ;;                     :translation (vec -1.0 -1.0 0.0))))
 
 (define cam (instantiate Camera))
 (translate! cam 0.0 200. 400.0)
@@ -122,13 +122,13 @@
 (if plane-model
     (begin 
       (let ([rotor (car (TransformationNode-children (list-ref (TransformationNode-children plane-model) 2)))])
-        (set! modules (cons (make-rotator rotor (* 4 pi) (vector 0. 0. 1.)) modules)))
+        (set! modules (cons (make-rotator rotor (* 4 pi) (vec 0. 0. 1.)) modules)))
       
       ;; create static collision plane
       (let ([plane-shape (make-rigid-body 
                            physics
                            (instantiate Plane 
-                               :normal (vector 0. 1. 0.) 
+                               :normal (vec 0. 1. 0.) 
                                :distance 55.))])
       (mass-set! physics plane-shape 0.)) ;; assigning zero mass makes rb static
 
@@ -136,14 +136,14 @@
       (set! rb (make-rigid-body 
                   physics
                   (instantiate AABB 
-                      :min (make-vector 3 -15.) 
-                      :max (make-vector 3 15.))))
+                      :min (make-vec 3 -15.) 
+                      :max (make-vec 3 15.))))
 
       (set! plane (instantiate TransformationNode
                       :transformation (RigidBody-transformation rb)
                       :children (list plane-model)))
       (translate! plane 0. 60. 0.)
-      (rotate! plane pi (vector 0. 1. 0.))
+      (rotate! plane pi (vec 0. 1. 0.))
       (synchronize-transform! rb)
       (uniform-scale! plane 4.)
 

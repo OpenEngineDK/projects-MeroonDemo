@@ -17,18 +17,18 @@ c-declare-end
 ;; the combined transformation.
 (define-class Transformation Object
   ([= translation 
-      :initializer (lambda () (make-vector 3 0.0))]
+      :initializer (lambda () (make-vec 3 0.0))]
    [= scaling
-      :initializer (lambda () (make-vector 3 1.0))]
+      :initializer (lambda () (make-vec 3 1.0))]
    [= rotation
-      :initializer (lambda () (instantiate Quaternion))]
+      :initializer make-quaternion]
    [= pivot :initializer (lambda () #f)]))
 
 ;; some transformation operations (missing scale!!!)
 (define (compose-trans t1 t2)
   (with-access t1 (Transformation rotation)
     (instantiate Transformation 
-        :translation (vector-map 
+        :translation (vec-map 
                       +
                       (rotate-vector 
                        (Transformation-translation t2) 
@@ -40,7 +40,7 @@ c-declare-end
 
 (define (compose-trans! t1 t2 t3)
   (with-access t3 (Transformation translation rotation)
-    (set! translation (vector-map 
+    (set! translation (vec-map 
                        +
                        (rotate-vector 
                         (Transformation-translation t2) 
@@ -54,11 +54,11 @@ c-declare-end
 ;;; methods
 (define-generic (Transformation-translate (o Transformation) x y z)
   (with-access o (Transformation translation)
-    (set! translation (vector-map + translation (vector x y z)))))
+    (set! translation (vec-map + translation (vec x y z)))))
 
 (define-generic (Transformation-scale (o Transformation) x y z)
   (with-access o (Transformation scaling)
-    (set! scaling (vector-map * scaling (vector x y z)))))
+    (set! scaling (vec-map * scaling (vec x y z)))))
 
 (define-generic (Transformation-rotate (o Transformation) angle vec)
   (with-access o (Transformation rotation)
@@ -124,8 +124,8 @@ c-declare-end
 
 ;; (define-method (translation-set! (o Transformation) x y z)
 ;;   (with-access o (Transformation translation)
-;;     (set! translation  (vector x y z))))
+;;     (set! translation  (vec x y z))))
 
 ;; (define-method (scaling-set! (o Transformation) x y z)
 ;;   (with-access o (Transformation translation)
-;;     (set! scaling (vector x y z))))
+;;     (set! scaling (vec x y z))))

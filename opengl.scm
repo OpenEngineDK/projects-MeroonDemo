@@ -291,55 +291,9 @@ INIT_GL_CONTEXT_END
     (with-access light (PointLight ambient diffuse specular)
       ((c-lambda (int scheme-object scheme-object scheme-object) void 
 #<<c-gl-setup-light-end
-
-const ___SCMOBJ scm_ar  = ___VECTORREF(___arg2, 0);
-const ___SCMOBJ scm_ag  = ___VECTORREF(___arg2, 4);
-const ___SCMOBJ scm_ab  = ___VECTORREF(___arg2, 8);
-const ___SCMOBJ scm_aa  = ___VECTORREF(___arg2, 12);
-
-const ___SCMOBJ scm_dr = ___VECTORREF(___arg3, 0);
-const ___SCMOBJ scm_dg = ___VECTORREF(___arg3, 4);
-const ___SCMOBJ scm_db = ___VECTORREF(___arg3, 8);
-const ___SCMOBJ scm_da = ___VECTORREF(___arg3, 12);
-
-const ___SCMOBJ scm_sr = ___VECTORREF(___arg4, 0);
-const ___SCMOBJ scm_sg = ___VECTORREF(___arg4, 4);
-const ___SCMOBJ scm_sb = ___VECTORREF(___arg4, 8);
-const ___SCMOBJ scm_sa = ___VECTORREF(___arg4, 12);
-
-float ambient[4];
-float diffuse[4];
-float specular[4];
-
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_ar, ambient[0], 12);
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_ag, ambient[1], 12);
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_ab, ambient[2], 12);
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_aa, ambient[3], 12);
-
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_dr, diffuse[0], 12);
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_dg, diffuse[1], 12);
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_db, diffuse[2], 12);
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_da, diffuse[3], 12);
-
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_sr, specular[0], 12);
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_sg, specular[1], 12);
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_sb, specular[2], 12);
-___BEGIN_CFUN_SCMOBJ_TO_FLOAT(scm_sa, specular[3], 12);
-
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_sa, specular[3], 12);
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_sb, specular[2], 12);
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_sg, specular[1], 12);
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_sr, specular[0], 12);
-
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_da, diffuse[3], 12);
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_db, diffuse[2], 12);
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_dg, diffuse[1], 12);
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_dr, diffuse[0], 12);
-
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_aa, ambient[3], 12);
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_ab, ambient[2], 12);
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_ag, ambient[1], 12);
-___END_CFUN_SCMOBJ_TO_FLOAT(scm_ar, ambient[0], 12);
+float* ambient  = &(___F32VECTORREF(___arg2, 0));
+float* diffuse  = &(___F32VECTORREF(___arg3, 0));
+float* specular = &(___F32VECTORREF(___arg4, 0));
 
 GLint light = GL_LIGHT0 + ___arg1;
 const float pos[] = {0.0, 0.0, 0.0, 1.0};
@@ -911,9 +865,9 @@ c-skin-mesh-end
 ))
 
 ;; construct column major float array matrices from transformation.
-(define (set-gl-rotation-matrix! transformation)
-  (with-access transformation (Transformation rotation)
-    ((c-lambda (float float float float) void
+(define (set-gl-rotation-matrix! trans)
+  (quaternion-deref (Transformation-rotation trans)
+    (c-lambda (float float float float) void
 #<<UPDATE_C_MATRIX_END
 const float w  = ___arg1;
 const float x  = ___arg2;
@@ -936,20 +890,12 @@ m_rot[7]  = 2*y*z-2*w*x;
 m_rot[8] = 1-2*x*x-2*y*y;
 
 UPDATE_C_MATRIX_END
-)
-     (Quaternion-w rotation)
-     (Quaternion-x rotation)
-     (Quaternion-y rotation)
-     (Quaternion-z rotation))))
+)))
 
 ;; the view matrix is the inverse matrix of the camera transformation
-(define (set-gl-view-matrix! transformation)
-  (with-access transformation (Transformation translation rotation)
-    ;; (display "cam trans: ")
-    ;; (display translation)
-    ;; (newline)
-    (with-access rotation (Quaternion w x y z)
-      ((c-lambda (float float float float) void
+(define (set-gl-view-matrix! trans)
+  (quaternion-deref (Transformation-rotation trans)
+    (c-lambda (float float float float) void
 #<<UPDATE_C_MATRIX_END
 const float w  = ___arg1;
 const float x  = ___arg2;
@@ -972,9 +918,9 @@ m[9] = 2*y*z+2*w*x;
 m[10] = 1-2*x*x-2*y*y;
 
 UPDATE_C_MATRIX_END
-)
-       w x y z))
-    ((c-lambda (float float float) void
+))
+  (vec-deref (Transformation-translation trans)
+    (c-lambda (float float float) void
 #<<UPDATE_TRANSFORMATION_POS_END
 
 const float x  = ___arg1;
@@ -986,30 +932,25 @@ m[12] = -x;
 m[13] = -y;
 m[14] = -z;
 UPDATE_TRANSFORMATION_POS_END
-)
-     (vector-ref translation 0)
-     (vector-ref translation 1)
-     (vector-ref translation 2))))
-  
+)))
+
+
 (define (set-gl-matrix! transformation)
   (with-access transformation (Transformation translation rotation scaling pivot)
-    (set-gl-matrix-rotation! (Quaternion-w rotation)
-                             (Quaternion-x rotation)
-                             (Quaternion-y rotation)
-                             (Quaternion-z rotation))
+    (quaternion-deref rotation set-gl-matrix-rotation!)
     (if pivot
-        (set-gl-matrix-position-with-pivot! (vector-ref translation 0)
-                                            (vector-ref translation 1)
-                                            (vector-ref translation 2)
-                                            (vector-ref pivot 0)
-                                            (vector-ref pivot 1)
-                                            (vector-ref pivot 2))
-        (set-gl-matrix-position! (vector-ref translation 0)
-                                 (vector-ref translation 1)
-                                 (vector-ref translation 2)))
-    (set-gl-matrix-scaling! (vector-ref scaling 0)
-                            (vector-ref scaling 1)
-                            (vector-ref scaling 2))))
+        (set-gl-matrix-position-with-pivot! (vec-ref translation 0)
+                                            (vec-ref translation 1)
+                                            (vec-ref translation 2)
+                                            (vec-ref pivot 0)
+                                            (vec-ref pivot 1)
+                                            (vec-ref pivot 2))
+        (set-gl-matrix-position! (vec-ref translation 0)
+                                 (vec-ref translation 1)
+                                 (vec-ref translation 2)))
+    (set-gl-matrix-scaling! (vec-ref scaling 0)
+                            (vec-ref scaling 1)
+                            (vec-ref scaling 2))))
 
 (define set-gl-matrix-rotation!
   (c-lambda (float float float float) void

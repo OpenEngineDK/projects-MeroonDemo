@@ -34,9 +34,9 @@ c-declare-end
 (define *loaded-materials* '())
 
 ;; transformation globals
-(define *transformation-pos* (make-vector 3 0.0))
-(define *transformation-rot* (instantiate Quaternion))
-(define *transformation-scale* (make-vector 3 1.0))
+(define *transformation-pos* (make-vec 3 0.0))
+(define *transformation-rot* (make-quaternion))
+(define *transformation-scale* (make-vec 3 1.0))
 
 ;; animation globals
 (define *loaded-bones* '())
@@ -81,40 +81,40 @@ c-declare-end
 
 (c-define (make-position-key-vector size)
     (int) void "make_position_key_vector_scm" ""
-  (set! *position-keys* (##still-copy (make-f32vector (* size 4)))))
+  (set! *position-keys* (##still-copy (make-vec (* size 4)))))
 
 (c-define (make-rotation-key-vector size)
     (int) void "make_rotation_key_vector_scm" ""
-  (set! *rotation-keys* (##still-copy (make-f32vector (* size 5)))))
+  (set! *rotation-keys* (##still-copy (make-vec (* size 5)))))
 
 (c-define (make-scaling-key-vector size)
     (int) void "make_scaling_key_vector_scm" ""
-  (set! *scaling-keys* (##still-copy (make-f32vector (* size 4)))))
+  (set! *scaling-keys* (##still-copy (make-vec (* size 4)))))
 
 (c-define (add-position-key time x y z i)
     (float32 float32 float32 float32 int) void "add_position_key_scm" ""
   (let ([p (* i 4)])
-    (f32vector-set! *position-keys* p time)
-    (f32vector-set! *position-keys* (+ p 1) x)
-    (f32vector-set! *position-keys* (+ p 2) y)
-    (f32vector-set! *position-keys* (+ p 3) z)))
+    (vec-set! *position-keys* p time)
+    (vec-set! *position-keys* (+ p 1) x)
+    (vec-set! *position-keys* (+ p 2) y)
+    (vec-set! *position-keys* (+ p 3) z)))
 
 (c-define (add-rotation-key time w x y z i)
     (float32 float32 float32 float32 float32 int) void "add_rotation_key_scm" ""
   (let ([p (* i 5)])
-    (f32vector-set! *rotation-keys* p time)
-    (f32vector-set! *rotation-keys* (+ p 1) w)
-    (f32vector-set! *rotation-keys* (+ p 2) x)
-    (f32vector-set! *rotation-keys* (+ p 3) y)
-    (f32vector-set! *rotation-keys* (+ p 4) z)))
+    (vec-set! *rotation-keys* p time)
+    (vec-set! *rotation-keys* (+ p 1) w)
+    (vec-set! *rotation-keys* (+ p 2) x)
+    (vec-set! *rotation-keys* (+ p 3) y)
+    (vec-set! *rotation-keys* (+ p 4) z)))
 
 (c-define (add-scaling-key time x y z i)
     (float32 float32 float32 float32 int) void "add_scaling_key_scm" ""
   (let ([p (* i 4)])
-    (f32vector-set! *scaling-keys* p time)
-    (f32vector-set! *scaling-keys* (+ p 1) x)
-    (f32vector-set! *scaling-keys* (+ p 2) y)
-    (f32vector-set! *scaling-keys* (+ p 3) z)))
+    (vec-set! *scaling-keys* p time)
+    (vec-set! *scaling-keys* (+ p 1) x)
+    (vec-set! *scaling-keys* (+ p 2) y)
+    (vec-set! *scaling-keys* (+ p 3) z)))
 
 (c-define (clear-animation-keys)
     () void "clear_animation_keys_scm" "" 
@@ -233,15 +233,15 @@ c-declare-end
 
 (c-define (set-pos x y z)
     (float float float) void "set_pos_scm" ""
-    (set! *transformation-pos* (vector x y z)))
+    (set! *transformation-pos* (vec x y z)))
 
 (c-define (set-rot w x y z)
     (float float float float) void "set_rot_scm" ""
-    (set! *transformation-rot* (instantiate Quaternion :w w :x x :y y :z z)))  
+    (set! *transformation-rot* (make-quaternion w x y z)))
 
 (c-define (set-scale x y z)
     (float float float) void "set_scale_scm" ""
-    (set! *transformation-scale* (vector x y z)))
+    (set! *transformation-scale* (vec x y z)))
 
 (c-define (add-bone-node weights)
     (Weights) int "add_bone_node_scm" ""

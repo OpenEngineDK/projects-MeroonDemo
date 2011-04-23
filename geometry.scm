@@ -31,9 +31,9 @@
       :immutable :initializer list]))
 
 (define-class Light Object 
-  ([= ambient  :initializer (lambda () (vector .2 .2 .2 1.))]
-   [= diffuse  :initializer (lambda () (vector .8 .8 .8 1.))]
-   [= specular :initializer (lambda () (vector 0. 0. 0. 1.))]))
+  ([= ambient  :initializer (lambda () (vec .2 .2 .2 1.))]
+   [= diffuse  :initializer (lambda () (vec .8 .8 .8 1.))]
+   [= specular :initializer (lambda () (vec 0. 0. 0. 1.))]))
 
 (define-class PointLight Light
   ([= constant-att  :initializer (lambda () 1.)]

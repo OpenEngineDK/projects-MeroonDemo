@@ -25,13 +25,13 @@
     (scheme-object float float float) void "set_translation_scm" ""
   (with-access rigid-body (RigidBody transformation)
     (with-access transformation (Transformation translation)
-      (set! translation (vector x y z)))))
+      (set! translation (vec x y z)))))
 
 (c-define (bullet-set-rotation! rigid-body w x y z)
     (scheme-object float float float float) void "set_rotation_scm" ""
   (with-access rigid-body (RigidBody transformation)
     (with-access transformation (Transformation rotation)
-      (set! rotation (instantiate Quaternion :w w :x x :y y :z z)))))
+      (set! rotation (make-quaternion w x y z)))))
 
 (c-define (bullet-get-translation! rigid-body)
     (scheme-object) void "get_translation_scm" ""
@@ -39,18 +39,17 @@
     (with-access transformation (Transformation translation)
       ((c-lambda (float float float) void
          "p[0] = ___arg1; p[1] = ___arg2; p[2] = ___arg3;")
-       (vector-ref translation 0)
-       (vector-ref translation 1)
-       (vector-ref translation 2)))))
+       (vec-ref translation 0)
+       (vec-ref translation 1)
+       (vec-ref translation 2)))))
   
 (c-define (bullet-get-rotation! rigid-body)
     (scheme-object) void "get_rotation_scm" ""
   (with-access rigid-body (RigidBody transformation)
-    (with-access (Transformation-rotation transformation) (Quaternion w x y z)
-      ((c-lambda (float float float float) void
-         "q[0] = ___arg1; q[1] = ___arg2; q[2] = ___arg3; q[3] = ___arg4;")
-       w x y z))))
-       
+    (quaternion-deref (Transformation-rotation transformation)
+      (c-lambda (float float float float) void
+        "q[0] = ___arg1; q[1] = ___arg2; q[2] = ___arg3; q[3] = ___arg4;"))))
+
 (c-declare #<<C-DECLARE-END
 #include <btBulletDynamicsCommon.h>
 #include <btBulletCollisionCommon.h>
@@ -147,8 +146,8 @@ C-DECLARE-END
       :initializer 
       (lambda () 
         (instantiate AABB
-            :min (vector -100. -100. -100.)
-            :max (vector 100. 100. 100.)))]
+            :min (vec -100. -100. -100.)
+            :max (vec 100. 100. 100.)))]
    [= rigid-bodies :initializer list]))
 
 (define-method (initialize! (o BulletPhysics))
@@ -173,12 +172,12 @@ world = new btDiscreteDynamicsWorld(dispatcher,
                                     solver,
                                     conf);
 BULLET-INIT-END
-) (vector-ref min 0)
-  (vector-ref min 1)
-  (vector-ref min 2)
-  (vector-ref max 0)
-  (vector-ref max 1)
-  (vector-ref max 2)))
+) (vec-ref min 0)
+  (vec-ref min 1)
+  (vec-ref min 2)
+  (vec-ref max 0)
+  (vec-ref max 1)
+  (vec-ref max 2)))
   (call-next-method))
 
 
@@ -206,12 +205,12 @@ const float corner_z = (max_z - min_z) * 0.5;
 ___result_voidstar = new btBoxShape(btVector3(corner_x, corner_y, corner_z));
 
 MAKE-BT-GEOMETRY-END
-) (vector-ref min 0)
-  (vector-ref min 1)
-  (vector-ref min 2)
-  (vector-ref max 0)
-  (vector-ref max 1)
-  (vector-ref max 2))))
+) (vec-ref min 0)
+  (vec-ref min 1)
+  (vec-ref min 2)
+  (vec-ref max 0)
+  (vec-ref max 1)
+  (vec-ref max 2))))
 
 (define-method (make-bt-geometry (geometry Plane))
   (with-access geometry (Plane normal distance)
@@ -225,9 +224,9 @@ const float d = ___arg4;
 ___result_voidstar = new btStaticPlaneShape(btVector3(x, y, z), d);
 
 MAKE-BT-GEOMETRY-END
-) (vector-ref normal 0)
-  (vector-ref normal 1)
-  (vector-ref normal 2)
+) (vec-ref normal 0)
+  (vec-ref normal 1)
+  (vec-ref normal 2)
   distance)))
 
 (define-generic (make-rigid-body (physics BulletPhysics) geometry)
@@ -280,7 +279,7 @@ ADD-RIGID-BODY-END
     ((c-lambda ((pointer "btRigidBody") float float float) void
        "___arg1->applyForce(btVector3(___arg2, ___arg3, ___arg4), btVector3(0.0, 0.0, 0.0));
         ___arg1->setActivationState(1);")
-     bt-rigid-body (vector-ref v 0) (vector-ref v 1) (vector-ref v 2))))
+     bt-rigid-body (vec-ref v 0) (vec-ref v 1) (vec-ref v 2))))
 
 (define-generic (apply-force-relative! (physics BulletPhysics) rigid-body force point)
   (let ([bt-rigid-body (bt-lookup-rigid-body rigid-body physics)])
@@ -288,12 +287,12 @@ ADD-RIGID-BODY-END
        "___arg1->applyForce(btVector3(___arg2, ___arg3, ___arg4), btVector3(___arg5, ___arg6, ___arg7));
         ___arg1->setActivationState(1);")
      bt-rigid-body 
-     (vector-ref force 0) 
-     (vector-ref force 1) 
-     (vector-ref force 2) 
-     (vector-ref point 0) 
-     (vector-ref point 1) 
-     (vector-ref point 2))))
+     (vec-ref force 0) 
+     (vec-ref force 1) 
+     (vec-ref force 2) 
+     (vec-ref point 0) 
+     (vec-ref point 1) 
+     (vec-ref point 2))))
 
 (define-generic (apply-torque! (physics BulletPhysics) rigid-body x y z)
   (let ([bt-rigid-body (bt-lookup-rigid-body rigid-body physics)])
@@ -319,13 +318,13 @@ ADD-RIGID-BODY-END
     ((c-lambda ((pointer "btRigidBody") float float float) void
        "___arg1->setLinearVelocity(btVector3(___arg2, ___arg3, ___arg4));
         ___arg1->setActivationState(1);")
-     bt-rigid-body (vector-ref v 0) (vector-ref v 1) (vector-ref v 2))))
+     bt-rigid-body (vec-ref v 0) (vec-ref v 1) (vec-ref v 2))))
 
 ;; temporary hack for all the vector getters
 (define *tmp-vec* #f)
 (c-define (bullet-set-vector! x y z)
     (float float float) void "set_bullet_tmp_vector_scm" ""
-  (set! *tmp-vec* (vector x y z)))
+  (set! *tmp-vec* (vec x y z)))
 
 (define-generic (linear-velocity (physics BulletPhysics) rigid-body)
   (let ([bt-rigid-body (bt-lookup-rigid-body rigid-body physics)])
@@ -390,22 +389,22 @@ ADD-RIGID-BODY-END
     
 GRAB-RIGID-BODY-END
 )
-                        (vector-ref begin 0)
-                        (vector-ref begin 1)
-                        (vector-ref begin 2)
-                        (vector-ref end 0)
-                        (vector-ref end 1)
-                        (vector-ref end 2))])
+                        (vec-ref begin 0)
+                        (vec-ref begin 1)
+                        (vec-ref begin 2)
+                        (vec-ref end 0)
+                        (vec-ref end 1)
+                        (vec-ref end 2))])
     (let ([rb (find-rigid-body bt-rigid-body physics)])
       (if rb
-          (cons rb (vector 0. 0. 0.))
+          (cons rb (vec 0. 0. 0.))
           #f))))
 
 ;; the grabber module - fun stuff!
 (define (make-physics-grabber add-mouse-handler add-motion-handler canvas3d physics)
   (let ([prev-x 0]
         [prev-y 0]
-        [pos (vector 0. 0. 0.)]
+        [pos (vec 0. 0. 0.)]
         [rigid-body #f])
     (let ([grab (lambda (btn state x y) 
                   (let ([cam (Canvas3D-camera canvas3d)]
@@ -431,7 +430,7 @@ GRAB-RIGID-BODY-END
                               [win-y (exact->inexact (/ (- (Canvas3D-height canvas3d) y) 
                                                         (Canvas3D-height canvas3d)))]
                               [new-pos (unproject cam win-x win-y 0.0)]
-                              [force (vector-scalar* 1000.0 (vector- new-pos pos))])
+                              [force (vec-scalar* 1000.0 (vec- new-pos pos))])
                          (apply-force! physics rigid-body 
                                        force)
                          (set! pos new-pos))))])

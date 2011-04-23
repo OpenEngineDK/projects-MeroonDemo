@@ -1,29 +1,29 @@
 (define-class Boid Object
-  ([= velocity :initializer (lambda () (vector 0. 0. 0.))]
-   [= accel :initializer (lambda () (vector 0. 0. 0.))]))
+  ([= velocity :initializer (lambda () (vec 0. 0. 0.))]
+   [= accel :initializer (lambda () (vec 0. 0. 0.))]))
 
 (define (make-boids-module transformation animation animator)
   (let ([boid (instantiate Boid)]
-        [center-point (vector 0. 200. 300.)])
+        [center-point (vec 0. 200. 300.)])
     (with-access transformation (Transformation translation rotation)
       (lambda (dt) 
         (with-access boid (Boid velocity accel)
-          (set! accel (vector 0. 0. 0.))
+          (set! accel (vec 0. 0. 0.))
           (cohersion-rule translation boid center-point)
           (random-dir-rule translation boid)
 
-          (set! velocity (vector-scalar* 0.98 (vector+ velocity (vector-scalar* (* 0.5 dt dt) accel))))
-          (set! translation (vector+ translation (vector-scalar* dt velocity)))
+          (set! velocity (vec-scalar* 0.98 (vec+ velocity (vec-scalar* (* 0.5 dt dt) accel))))
+          (set! translation (vec+ translation (vec-scalar* dt velocity)))
           
-          (let ([speed (vector-norm velocity)])
+          (let ([speed (vec-norm velocity)])
             ;; (display "play speed: ")
             ;; (display (* speed .09))
             ;; (newline)
             (play-speed-set! (* speed .1) animation animator) 
             (if (> speed 1.0)
-                (let* ([x (vector-normalize velocity)]
-                       [z (vector-normalize (vector-cross x (vector 0. 1. 0.)))]
-                       [y (vector-normalize (vector-cross z x))])
+                (let* ([x (vec-normalize velocity)]
+                       [z (vec-normalize (vec-cross x (vec 0. 1. 0.)))]
+                       [y (vec-normalize (vec-cross z x))])
                   (set! rotation (quaternion-interp 
                                   rotation 
                                   (make-quaternion-from-direction x y)
@@ -32,25 +32,25 @@
 
 (define (cohersion-rule pos boid center-point)
   (with-access boid (Boid accel)
-    (set! accel (vector+ 
+    (set! accel (vec+ 
                  accel 
-                 (vector-scalar* 
+                 (vec-scalar* 
                   50.0 
-                  (vector- 
+                  (vec- 
                    center-point 
                    pos))))))
 
 
 (define (random-dir-rule pos boid)
   (with-access boid (Boid velocity)
-    (let ([dir (vector-scalar* 
+    (let ([dir (vec-scalar* 
                  1.5
-                 (vector
+                 (vec
                   (- (* 2. (random-real)) 1.)
                   (- (* 2. (random-real)) 1.)
                   (- (* 2. (random-real)) 1.)))])
-      (if (> (vector-dot dir velocity) .1)
-          (set! velocity (vector+ 
+      (if (> (vec-dot dir velocity) .1)
+          (set! velocity (vec+ 
                           velocity
                           dir
                           ))))))
@@ -63,20 +63,20 @@
   (with-access rigid-body (RigidBody transformation)
     (with-access transformation (Transformation rotation)
       (linear-damping-set! physics rigid-body 0.6)
-      (let ([center-point (vector 0. 0. 300.)])
+      (let ([center-point (vec 0. 0. 300.)])
         (lambda (dt) 
           (bullet-cohersion-rule physics rigid-body center-point)
           (bullet-random-dir-rule physics rigid-body)
           (let ([velocity (linear-velocity physics rigid-body)])
-            (let ([speed (vector-norm velocity)])
+            (let ([speed (vec-norm velocity)])
               ;; (display "speed: ")
               ;; (display speed)
               ;; (newline)
               (play-speed-set! (* 0.01 speed) animation animator)
               (if (> speed 1.0)
-                  (let* ([x (vector-normalize velocity)]
-                         [z (vector-normalize (vector-cross x (vector 0. 1. 0.)))]
-                         [y (vector-normalize (vector-cross z x))])
+                  (let* ([x (vec-normalize velocity)]
+                         [z (vec-normalize (vec-cross x (vec 0. 1. 0.)))]
+                         [y (vec-normalize (vec-cross z x))])
                     (set! rotation (quaternion-interp 
                                     rotation 
                                     (make-quaternion-from-direction x y)
@@ -87,12 +87,12 @@
 (define (bullet-cohersion-rule physics rb center-point)
   (with-access rb (RigidBody transformation)
     (with-access transformation (Transformation translation rotation)
-      (let ([force (vector-scalar* 
+      (let ([force (vec-scalar* 
                     5. 
-                    (vector- 
+                    (vec- 
                      center-point 
                      translation))]
-          [rel-pos (rotate-vector (vector 0. 0. -2.) rotation)])
+          [rel-pos (rotate-vector (vec 0. 0. -2.) rotation)])
       (apply-force-relative! physics 
                    rb 
                    force
@@ -100,16 +100,16 @@
 
 (define (bullet-random-dir-rule physics rb)
     (let ([velocity (linear-velocity physics rb)]
-          [dir (vector-scalar* 
+          [dir (vec-scalar* 
                 10.5
-                (vector
+                (vec
                  (- (* 2. (random-real)) 1.)
                  (- (* 2. (random-real)) 1.)
                  (- (* 2. (random-real)) 1.)))])
-    (if (> (vector-dot dir velocity) .1)
+    (if (> (vec-dot dir velocity) .1)
         (linear-velocity-set! physics 
                               rb 
-                              (vector+ 
+                              (vec+ 
                                velocity
                                dir
                                )))))

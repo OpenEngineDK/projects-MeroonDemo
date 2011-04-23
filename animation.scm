@@ -15,7 +15,7 @@
 (define-class ParallelAnimation Animation
   ([= child-animations
       :immutable
-      :initialiser vector]
+      :initialiser vec]
    ))
 
 ;; evaluate child animations sequentually
@@ -128,14 +128,14 @@
 ;; code duplication in next two functions ... fixme
 (define (find-first-and-last-vec time keys)
   (let ([->time-vec-pair (lambda (i) 
-                           (cons (f32vector-ref keys i) 
-                                 (vector (f32vector-ref keys (+ i 1)) 
-                                         (f32vector-ref keys (+ i 2))
-                                         (f32vector-ref keys (+ i 3)))))]) 
+                           (cons (vec-ref keys i) 
+                                 (vec (vec-ref keys (+ i 1)) 
+                                         (vec-ref keys (+ i 2))
+                                         (vec-ref keys (+ i 3)))))]) 
     (letrec ([visit (lambda (i)
-                      (if (< i (f32vector-length keys))
+                      (if (< i (vec-length keys))
                           
-                          (if (> time (f32vector-ref keys i))
+                          (if (> time (vec-ref keys i))
                               (visit (+ i 4))
                               (cons (->time-vec-pair (- i 4))
                                     (->time-vec-pair i)))
@@ -146,16 +146,16 @@
 
 (define (find-first-and-last-quat time keys)
   (let ([->time-quat-pair (lambda (i) 
-                           (cons (f32vector-ref keys i) 
-                                 (instantiate Quaternion 
-                                     :w (f32vector-ref keys (+ i 1)) 
-                                     :x (f32vector-ref keys (+ i 2))
-                                     :y (f32vector-ref keys (+ i 3))
-                                     :z (f32vector-ref keys (+ i 4)))))])
+                           (cons (vec-ref keys i) 
+                                 (make-quaternion 
+                                  (vec-ref keys (+ i 1)) 
+                                  (vec-ref keys (+ i 2))
+                                  (vec-ref keys (+ i 3))
+                                  (vec-ref keys (+ i 4)))))])
     (letrec ([visit (lambda (i)
-                      (if (< i (f32vector-length keys))
+                      (if (< i (vec-length keys))
                           
-                          (if (> time (f32vector-ref keys i))
+                          (if (> time (vec-ref keys i))
                               (visit (+ i 5))
                               (cons (->time-quat-pair (- i 5))
                                     (->time-quat-pair i)))
@@ -183,7 +183,7 @@
           (let ([first (car p)]
                 [second (cdr p)])
             (set! translation 
-                  (vector-interp 
+                  (vec-interp 
                    (cdr first)  ;; from-pos
                    (cdr second) ;; to-pos
                    (/ (- time (car first)) ;; time-scale
