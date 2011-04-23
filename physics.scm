@@ -20,6 +20,7 @@
   (translate! (RigidBody-transformation o) x y z)
   (synchronize-transform! o))
 
+;; internal helpers
 ;; maybe we can use transformations generic function instead?
 (c-define (bullet-set-translation! rigid-body x y z)
     (scheme-object float float float) void "set_translation_scm" ""
@@ -104,6 +105,7 @@ public:
         glLineWidth(2.0);
         CHECK_FOR_GL_ERROR();
 
+        //printf("from: (%f, %f, %f) to (%f, %f, %f)\n", from[0], from[1], from[2], to[0], to[1], to[2]);
         glBegin(GL_LINES);
             glColor3f(color[0],color[1],color[2]);
             glVertex3f(from[0], from[1], from[2]);
@@ -185,6 +187,31 @@ BULLET-INIT-END
 (define-generic (make-bt-geometry (o))
   (error "Unsupported bounding geometry"))
 
+(define-method (make-bt-geometry (geometry Heightmap))
+  (with-access geometry (Heightmap data-width data-height height-data height-offset height-scale xy-scale) 
+    ((c-lambda (int int (pointer "float") float float float) (pointer "btCollisionShape")
+#<<MAKE-BT-GEOMETRY-END
+const int width           = ___arg1;
+const int height          = ___arg2;
+float* data               = ___arg3;
+const float height_offset = ___arg4;
+const float xy_scale      = ___arg5;
+const float max_height    = ___arg6;
+
+btHeightfieldTerrainShape* hf = new btHeightfieldTerrainShape(width, height, data, 1.0, height_offset, max_height, 1, PHY_FLOAT, true);
+hf->setLocalScaling(btVector3(xy_scale, 1.0f, xy_scale));
+___result_voidstar = hf;
+
+MAKE-BT-GEOMETRY-END
+)
+     data-width 
+     data-height
+     height-data
+     height-offset
+     xy-scale
+     (+ height-scale height-offset))))
+
+
 (define-method (make-bt-geometry (geometry AABB))
   (with-access geometry (AABB min max)
     ((c-lambda (float float float float float float) (pointer "btCollisionShape")
@@ -230,7 +257,7 @@ MAKE-BT-GEOMETRY-END
   distance)))
 
 (define-generic (make-rigid-body (physics BulletPhysics) geometry)
-  (let* ([transformation (instantiate Transformation)] 
+  (let* ([transformation (instantiate Transformation)]
          [bt-geometry (make-bt-geometry geometry)]
          ;; make a still copy of rigid body so we can keep a ref in C++
          [rigid-body  (##still-copy (instantiate RigidBody 
@@ -331,8 +358,8 @@ ADD-RIGID-BODY-END
     ((c-lambda ((pointer "btRigidBody")) void
        "btVector3 v = ___arg1->getLinearVelocity();
         set_bullet_tmp_vector_scm(v[0], v[1], v[2]);")
-     bt-rigid-body))
-  *tmp-vec*)
+     bt-rigid-body)
+  *tmp-vec*))
 
 (define-generic (mass-set! (physics BulletPhysics) rigid-body v)
   (let ([bt-rigid-body (bt-lookup-rigid-body rigid-body physics)])
@@ -353,8 +380,7 @@ ADD-RIGID-BODY-END
 ;; @todo the world and various runtime parameters should be placed in
 ;; the BulletPhysics class.
 (define-generic (make-physics-module (physics BulletPhysics))
-  (c-lambda (float) void "world->stepSimulation(___arg1, 10);"))
-
+  (c-lambda (float) void "world->stepSimulation(___arg1, 10, btScalar(1.)/btScalar(30.));"))
 (define bullet-debug-draw
   (c-lambda () void 
     "world->setDebugDrawer(&debug_draw); world->debugDrawWorld();"))
@@ -385,6 +411,8 @@ ADD-RIGID-BODY-END
     btVector3 end(___arg4, ___arg5, ___arg6);
     btCollisionWorld::ClosestRayResultCallback cb(begin, end);
     world->rayTest(begin, end, cb);
+    btVector3 v = cb.m_hitPointWorld;
+    set_bullet_tmp_vector_scm(v[0], v[1], v[2]);
     ___result_voidstar = cb.m_collisionObject;
     
 GRAB-RIGID-BODY-END
@@ -397,42 +425,58 @@ GRAB-RIGID-BODY-END
                         (vec-ref end 2))])
     (let ([rb (find-rigid-body bt-rigid-body physics)])
       (if rb
-          (cons rb (vec 0. 0. 0.))
+          (cons rb *tmp-vec*)
           #f))))
+
+
+(define (dist-2d x y)
+  (sqrt (+ (* x x) (* y y))))
 
 ;; the grabber module - fun stuff!
 (define (make-physics-grabber add-mouse-handler add-motion-handler canvas3d physics)
   (let ([prev-x 0]
         [prev-y 0]
-        [pos (vec 0. 0. 0.)]
-        [rigid-body #f])
+        [rel-pos (vec 0. 0. 0.)]
+        [rigid-body #f]
+        [last-btn #f])
     (let ([grab (lambda (btn state x y) 
                   (let ([cam (Canvas3D-camera canvas3d)]
                         [win-x (exact->inexact (/ x (Canvas3D-width canvas3d)))]
                         [win-y (exact->inexact (/ (- (Canvas3D-height canvas3d) y) 
                                                   (Canvas3D-height canvas3d)))])
                     (cond 
-                      [(and (eqv? btn 'left) (eqv? state 'down))
+                      [(eqv? state 'down)
+                       (set! last-btn btn)
                        (set! pos (unproject cam win-x win-y 0.0))
+                       (set! prev-x win-x)
+                       (set! prev-y win-y)
                        (let ([hit (grab-rigid-body pos
                                                    (unproject cam win-x win-y 1.0) 
                                                    physics)])
                          (if hit
-                             (set! rigid-body (car hit))
+                             (begin
+                               (set! rigid-body (car hit))
+                               (set! rel-pos (vec- 
+                                              (cdr hit) 
+                                              (Transformation-translation 
+                                               (RigidBody-transformation rigid-body)))))
                              (set! rigid-body #f)))]
-                      [(and (eqv? btn 'left) (eqv? state 'up))
+                      [(eqv? state 'up)
                        (set! rigid-body #f)])))])
       (add-mouse-handler grab))
     (let ([move (lambda (x y)
-                   (if rigid-body
-                       (let* ([cam (Canvas3D-camera canvas3d)]
-                              [win-x (exact->inexact (/ x (Canvas3D-width canvas3d)))]
-                              [win-y (exact->inexact (/ (- (Canvas3D-height canvas3d) y) 
-                                                        (Canvas3D-height canvas3d)))]
-                              [new-pos (unproject cam win-x win-y 0.0)]
-                              [force (vec-scalar* 1000.0 (vec- new-pos pos))])
-                         (apply-force! physics rigid-body 
-                                       force)
-                         (set! pos new-pos))))])
+                  (if rigid-body
+                      (let* ([cam (Canvas3D-camera canvas3d)]
+                             [win-x (exact->inexact (/ x (Canvas3D-width canvas3d)))]
+                             [win-y (exact->inexact (/ (- (Canvas3D-height canvas3d) y) 
+                                                       (Canvas3D-height canvas3d)))]
+                             [pos (unproject cam prev-x prev-y 0.0)]
+                             [new-pos (unproject cam win-x win-y 0.0)])
+                        (if (eqv? last-btn 'right)
+                            (let ([force (vec-scalar*  30.0 (vec- new-pos pos))])
+                              (apply-force-relative! physics rigid-body 
+                                                     force rel-pos))
+                            (let ([force (vec-scalar*  1000.0 (vec- new-pos pos))])
+                              (apply-force! physics rigid-body force))))))])
       (add-motion-handler move))))
  

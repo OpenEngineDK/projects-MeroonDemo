@@ -65,6 +65,7 @@ GAMBIT_ADD_EXECUTABLE(MeroonDemo OE_OpenGL_Env
   modules.scm
   assimp.scm
   dotvisitor.scm
+  heightmap.scm
   physics.scm
   boids.scm
   main.scm
