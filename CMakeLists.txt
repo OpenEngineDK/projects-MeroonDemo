@@ -78,3 +78,18 @@ TARGET_LINK_LIBRARIES(MeroonDemo
   Extensions_BulletPhysics
   CPPStuff
 )
+
+
+## project
+# GAMBIT_ADD_EXECUTABLE(assetviewer OE_OpenGL_Env
+#   modules.scm
+#   assimp.scm
+#   dotvisitor.scm
+#   asset-viewer.scm
+# )
+
+# TARGET_LINK_LIBRARIES(assetviewer
+#   OpenEngine_Core
+#   Extensions_AssimpResource
+#   CPPStuff
+# )

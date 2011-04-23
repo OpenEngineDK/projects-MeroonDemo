@@ -7,7 +7,7 @@
   ([= aspect   :immutable :initializer (lambda () (/ 4.0 3.0))]
    [= fov      :immutable :initializer (lambda () (/ pi 4.0))]
    [= near     :immutable :initializer (lambda () 3.0)]
-   [= far      :immutable :initializer (lambda () 5000.0)]
+   [= far      :immutable :initializer (lambda () 7000.0)]
    [= c-matrix :immutable 
       :initializer (c-lambda () (pointer "float")
 		     "float* m = new float[16];
@@ -179,27 +179,41 @@ CALC-PROJ-END
     point))
 
 
-(define (update-cameras! scene)
-  (*update-cameras! scene (instantiate Transformation)))
+(define (update-cameras! scene dt)
+  (*update-cameras! scene (instantiate Transformation) dt))
 
-(define-generic  (*update-cameras! (scene Scene) tos)
+(define-generic  (*update-cameras! (scene Scene) tos dt)
   (error "Unsupported Scene"))
 
-(define-method (*update-cameras! (leaf SceneLeaf) tos)
+(define-method (*update-cameras! (leaf SceneLeaf) tos dt)
 #f)
 
-(define-method (*update-cameras! (node SceneNode) tos)
+(define-method (*update-cameras! (node SceneNode) tos dt)
   (do ([children (SceneNode-children node) (cdr children)])
       ((null? children))
-    (*update-cameras! (car children) tos)))
+    (*update-cameras! (car children) tos dt)))
 
-(define-method (*update-cameras! (node TransformationNode) tos)
+(define-method (*update-cameras! (node TransformationNode) tos dt)
   (with-access node (TransformationNode transformation)
+    (with-access transformation (Transformation rotation)
+      (quat-normalize! rotation))
     (let ([push-trans (compose-trans tos transformation)])
+      (with-access push-trans (Transformation rotation)
+        (quat-normalize! rotation))
       (do ([children (TransformationNode-children node) (cdr children)])
           ((null? children))
-          (*update-cameras! (car children) push-trans)))))
+          (*update-cameras! (car children) push-trans dt)))))
 
-(define-method (*update-cameras! (leaf CameraLeaf) tos)
-  (with-access (CameraLeaf-camera leaf) (Camera view)
-    (set! view tos)))
+(define trans-factor 5.)
+(define rot-factor 5.)
+
+(define-method (*update-cameras! (leaf CameraLeaf) tos dt)
+  (with-access tos (Transformation translation rotation)
+    (with-access (CameraLeaf-camera leaf) (Camera view)
+      (let* ([old-vec (Transformation-translation view)]
+             [old-rot  (Transformation-rotation view)]
+             [new-vec (rotate-vec translation (quat-conjugate rotation))]
+             [new-rot rotation])
+        (set! view (instantiate Transformation 
+                       :translation (vec-interp old-vec new-vec (* dt trans-factor))
+                       :rotation (quat-interp old-rot new-rot (* dt rot-factor))))))))
