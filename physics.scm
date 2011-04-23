@@ -54,6 +54,7 @@
 (c-declare #<<C-DECLARE-END
 #include <btBulletDynamicsCommon.h>
 #include <btBulletCollisionCommon.h>
+#include <BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h>
 
 #include <Meta/OpenGL.h>
 
