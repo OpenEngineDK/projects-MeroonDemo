@@ -31,7 +31,7 @@
     (scheme-object float float float float) void "set_rotation_scm" ""
   (with-access rigid-body (RigidBody transformation)
     (with-access transformation (Transformation rotation)
-      (set! rotation (make-quaternion w x y z)))))
+      (set! rotation (quat w x y z)))))
 
 (c-define (bullet-get-translation! rigid-body)
     (scheme-object) void "get_translation_scm" ""
@@ -46,7 +46,7 @@
 (c-define (bullet-get-rotation! rigid-body)
     (scheme-object) void "get_rotation_scm" ""
   (with-access rigid-body (RigidBody transformation)
-    (quaternion-deref (Transformation-rotation transformation)
+    (quat-deref (Transformation-rotation transformation)
       (c-lambda (float float float float) void
         "q[0] = ___arg1; q[1] = ___arg2; q[2] = ___arg3; q[3] = ___arg4;"))))
 
