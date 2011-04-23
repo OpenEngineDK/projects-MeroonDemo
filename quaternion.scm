@@ -43,8 +43,8 @@
     (vec-set! c 0 (vec-ref q 0))
     c))
 
-(define (rotate-vec vec q)
-  (let* ([q1 (apply make-quaternion-from-euler-angles (vec->list vec))]
+(define (rotate-vec v q)
+  (let* ([q1 (make-quaternion 0. (vec-ref v 0) (vec-ref v 1) (vec-ref v 2))]
          [q2 (quaternion* (quaternion* q q1)
                           (quaternion-conjugate q))])
     (subvec q2 1 4)))
