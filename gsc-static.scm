@@ -1,30 +1,12 @@
 #!gsc-script
 
-(define (scm? str)
-  (and (> (string-length str) 4)
-       (equal? ".scm"
-               (substring str
-                   (- (string-length str) 4)
-                   (string-length str)))))
+(include "gsc-parse.scm")
 
-(let* ([args (cdr (command-line))]
-       [link   (car  args)]
-       [target (cadr args)]
-       [files  (cddr args)])
-  ;;(display args)
-  (let loop ([files files]
-             [modules '()])
-    (if (null? files)
-        (link-incremental (reverse modules)
-                          output: target
-                          base: link)
-        (let ([file (car files)])
-          (if (scm? file)
-              (begin 
-                (compile-file-to-c file options: '(debug track-scheme))
-                (loop (cdr files)
-                      (cons (substring file 0 (- (string-length file) 4))
-                            modules)))
-              (begin 
-                (load file)
-                (loop (cdr files) modules)))))))
+(call-with-values (lambda () (parse (cdr (command-line))))
+  (lambda (target link loads incs files enabled disabled)
+    ;;(pp (list link)) ;;target link loads incs files enabled disabled))
+    ;;(newline)
+    (for-each (lambda (f) (eval `(include ,f))) incs)
+    (for-each (lambda (f) (load f)) loads)
+    (for-each (lambda (f) (compile-file-to-c f)) files)
+    (link-incremental (files->modules files) output: target base: link)))

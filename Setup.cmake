@@ -9,6 +9,7 @@ IF(CMAKE_BUILD_TYPE STREQUAL debug)
   SET(GAMBITC_FLAGS ${GAMBITC_FLAGS} -debug -track-scheme)
 ENDIF(CMAKE_BUILD_TYPE STREQUAL debug)
 SET(GAMBITC_LOADED_LIBRARIES)
+SET(GAMBITC_LOADED_MACROS)
 
 # Create a Meroon library that extends plain gambit
 # Target: GAMBIT_MEROON
@@ -64,9 +65,10 @@ MACRO(GAMBIT_ADD_TARGET_HELPER type target extends)
     COMMAND ${GAMBITC} #${GAMBITC_FLAGS}
             -i ${CMAKE_CURRENT_SOURCE_DIR}/gsc-shared.scm
 	    #${type}
-	    ${${target}_LOAD_FILE}.o1.c
-	    ${GAMBITC_LOADED_LIBRARIES}
-    	    ${${target}_SCM_FILES} >/dev/null # ignore warnings from shared libs
+	    -o ${${target}_LOAD_FILE}.o1.c
+	    -L ${GAMBITC_LOADED_LIBRARIES}
+    	    -S ${${target}_SCM_FILES} 
+	    -I ${GAMBITC_LOADED_MACROS} #>/dev/null # ignore warnings from shared libs
     COMMAND mv ${${target}_TMP_FILES} ${type}/
     DEPENDS ${${target}_SCM_FILES} ${target} #DEPEND ON STATIC LIB (file race cond)
     COMMENT "Generating ${GAMBIT_OUTPUT_LANGUAGE} for target ${target}")
@@ -85,10 +87,11 @@ MACRO(GAMBIT_ADD_TARGET_HELPER type target extends)
     # 	    ${${target}_SCM_FILES}
     COMMAND ${GAMBITC} #${GAMBITC_FLAGS}
             -i ${CMAKE_CURRENT_SOURCE_DIR}/gsc-static.scm
-	    ${${extends}_LINK_FILE}
-            ${${target}_LINK_FILE}.c
-	    ${GAMBITC_LOADED_LIBRARIES}
-	    ${${target}_SCM_FILES}
+	    -l ${${extends}_LINK_FILE}
+            -o ${${target}_LINK_FILE}.c
+	    -L ${GAMBITC_LOADED_LIBRARIES}
+	    -S ${${target}_SCM_FILES}
+	    -I ${GAMBITC_LOADED_MACROS}
     COMMAND mv ${${target}_TMP_FILES} ${type}/
     DEPENDS ${${target}_SCM_FILES} ${DEPS} #DEPEND ON EXTENDED SHARED LIB (load race cond)
     COMMENT "Generating ${GAMBIT_OUTPUT_LANGUAGE} for target ${target}")
@@ -140,3 +143,7 @@ ENDMACRO(GAMBIT_LINK_LIBRARIES)
 MACRO(GAMBIT_LOAD_LIBRARY target)
   SET(GAMBITC_LOADED_LIBRARIES ${GAMBITC_LOADED_LIBRARIES} ${target})
 ENDMACRO(GAMBIT_LOAD_LIBRARY)
+
+MACRO(GAMBIT_LOAD_MACROS target)
+  SET(GAMBITC_LOADED_MACROS ${GAMBITC_LOADED_MACROS} "${CMAKE_CURRENT_SOURCE_DIR}/${target}")
+ENDMACRO(GAMBIT_LOAD_MACROS)
