@@ -4,7 +4,7 @@
 
 (define (make-boids-module transformation animation animator)
   (let ([boid (instantiate Boid)]
-        [center-point (vec 0. 200. 300.)])
+        [center-point (vec 0. 200. -300.)])
     (with-access transformation (Transformation translation rotation)
       (lambda (dt) 
         (with-access boid (Boid velocity accel)
@@ -24,11 +24,10 @@
                 (let* ([x (vec-normalize velocity)]
                        [z (vec-normalize (vec-cross x (vec 0. 1. 0.)))]
                        [y (vec-normalize (vec-cross z x))])
-                  (set! rotation (quaternion-interp 
+                  (set! rotation (quat-interp 
                                   rotation 
-                                  (make-quaternion-from-direction x y)
-                                  (* 0.1 speed dt)))))
-            ))))))
+                                  (make-quat-from-direction x y)
+                                  (* 0.1 speed dt)))))))))))
 
 (define (cohersion-rule pos boid center-point)
   (with-access boid (Boid accel)
@@ -39,7 +38,6 @@
                   (vec- 
                    center-point 
                    pos))))))
-
 
 (define (random-dir-rule pos boid)
   (with-access boid (Boid velocity)
@@ -55,10 +53,7 @@
                           dir
                           ))))))
 
-
-
 ;; boids using bullet!
-
 (define (make-bullet-boids-module physics rigid-body animation animator)
   (with-access rigid-body (RigidBody transformation)
     (with-access transformation (Transformation rotation)
@@ -69,17 +64,14 @@
           (bullet-random-dir-rule physics rigid-body)
           (let ([velocity (linear-velocity physics rigid-body)])
             (let ([speed (vec-norm velocity)])
-              ;; (display "speed: ")
-              ;; (display speed)
-              ;; (newline)
               (play-speed-set! (* 0.01 speed) animation animator)
               (if (> speed 1.0)
                   (let* ([x (vec-normalize velocity)]
                          [z (vec-normalize (vec-cross x (vec 0. 1. 0.)))]
                          [y (vec-normalize (vec-cross z x))])
-                    (set! rotation (quaternion-interp 
+                    (set! rotation (quat-interp 
                                     rotation 
-                                    (make-quaternion-from-direction x y)
+                                    (make-quat-from-direction x y)
                                     (* 0.1 speed dt)))
                     ;;(synchronize-transform! physics rb)
                     )))))))))
@@ -92,7 +84,7 @@
                     (vec- 
                      center-point 
                      translation))]
-          [rel-pos (rotate-vector (vec 0. 0. -2.) rotation)])
+          [rel-pos (rotate-vec (vec 0. 0. -2.) rotation)])
       (apply-force-relative! physics 
                    rb 
                    force

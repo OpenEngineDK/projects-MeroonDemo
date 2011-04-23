@@ -154,10 +154,10 @@ SET-VIEW-END
        (vec-ref translation 0)
        (vec-ref translation 1)
        (vec-ref translation 2)
-       (quaternion-w rotation)
-       (quaternion-x rotation)
-       (quaternion-y rotation)
-       (quaternion-z rotation))))
+       (quat-w rotation)
+       (quat-x rotation)
+       (quat-y rotation)
+       (quat-z rotation))))
   (let ([point (vec 0. 0. 0.)])
     ((c-lambda (float float float scheme-object) void
 #<<CALC-PROJ-END

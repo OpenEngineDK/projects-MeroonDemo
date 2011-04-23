@@ -35,7 +35,7 @@ c-declare-end
 
 ;; transformation globals
 (define *transformation-pos* (make-vec 3 0.0))
-(define *transformation-rot* (make-quaternion))
+(define *transformation-rot* (make-quat))
 (define *transformation-scale* (make-vec 3 1.0))
 
 ;; animation globals
@@ -237,7 +237,7 @@ c-declare-end
 
 (c-define (set-rot w x y z)
     (float float float float) void "set_rot_scm" ""
-    (set! *transformation-rot* (make-quaternion w x y z)))
+    (set! *transformation-rot* (quat w x y z)))
 
 (c-define (set-scale x y z)
     (float float float) void "set_scale_scm" ""

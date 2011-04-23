@@ -21,7 +21,7 @@ c-declare-end
    [= scaling
       :initializer (lambda () (make-vec 3 1.0))]
    [= rotation
-      :initializer make-quaternion]
+      :initializer make-quat]
    [= pivot :initializer (lambda () #f)]))
 
 ;; some transformation operations (missing scale!!!)
@@ -30,11 +30,11 @@ c-declare-end
     (instantiate Transformation 
         :translation (vec-map 
                       +
-                      (rotate-vector 
+                      (rotate-vec
                        (Transformation-translation t2) 
                        rotation)
                       (Transformation-translation t1))
-        :rotation (quaternion*                 
+        :rotation (quat*                 
                    rotation
                    (Transformation-rotation t2)))))
 
@@ -42,11 +42,11 @@ c-declare-end
   (with-access t3 (Transformation translation rotation)
     (set! translation (vec-map 
                        +
-                       (rotate-vector 
+                       (rotate-vec 
                         (Transformation-translation t2) 
                         (Transformation-rotation t1))
                        (Transformation-translation t1)))
-    (set! rotation (quaternion*                 
+    (set! rotation (quat*                 
                     (Transformation-rotation t1)
                     (Transformation-rotation t2)))))
 
@@ -62,7 +62,7 @@ c-declare-end
 
 (define-generic (Transformation-rotate (o Transformation) angle vec)
   (with-access o (Transformation rotation)
-    (set! rotation (quaternion* rotation (make-quaternion angle vec)))))
+    (set! rotation (quat* rotation (make-quat-from-angle-axis angle vec)))))
 
 (define-method (show (o Transformation) . stream)
   (let ([stream (if (pair? stream) (car stream) (current-output-port))])

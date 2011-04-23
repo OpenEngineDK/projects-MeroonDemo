@@ -1,68 +1,42 @@
-;; Quaternion constructors:
-;;   (make-quaternion)                         => #q(1, 0,0,0)
-;;   (make-quaternion r)                       => #q(r, 0,0,0)
-;;   (make-quaternion r i1 i2 i3)              => #q(r, i1,i2,i3)
-;;   (make-quaternion x-angle y-angle z-angle) => euler angles
-;;   (make-quaternion angle axis)              => angle + axis vector
-(define (make-quaternion . args)
-  (let ([len (length args)])
-    (cond
-      [(fx= len 0)
-       (vec 1. 0. 0. 0.)]
-      [(fx= len 1)
-       (vec (exact->inexact (car args)) 0. 0. 0.)]
-      [(fx= len 2)
-       (let ([angle (car args)]
-             [axis (cadr args)])
-         (make-quaternion-from-angle-axis
-          (exact->inexact (car args))
-          (if (vector? axis) (vector->vec axis) axis)))]
-      [(fx= len 3)
-       (apply make-quaternion-from-euler-angles (map exact->inexact args))]
-      [(fx= len 4)
-       (list->vec (map exact->inexact args))]
-      [else
-       (error "invalid arguments to make-quaternion")])))
+(define (make-quat)
+  (vec 1. 0. 0. 0.))
 
-(define (quaternion? q) (and (vec? q) (fx= 4 (vec-length q))))
-(define quaternion-deref vec-deref)
-(define (quaternion-w q) (vec-ref q 0))
-(define (quaternion-x q) (vec-ref q 1))
-(define (quaternion-y q) (vec-ref q 2))
-(define (quaternion-z q) (vec-ref q 3))
+(define (quat w x y z)
+  (vec w x y z))
 
+(define (quat? q) (and (vec? q) (fx= 4 (vec-length q))))
+(define quat-deref vec-deref)
+(define (quat-w q) (vec-ref q 0))
+(define (quat-x q) (vec-ref q 1))
+(define (quat-y q) (vec-ref q 2))
+(define (quat-z q) (vec-ref q 3))
 
-(define (quaternion-normalize! q)
+(define (quat-normalize! q)
   (let* ([norm-squared (vec-dot q q)])
     (if (fl<= norm-squared 0.0)
-        (error "Can not normalize quaternion with zero norm")
+        (error "Can not normalize quat with zero norm")
         (vec-map fl/ q (make-vec 4 (flsqrt norm-squared))))))
 
-(define (quaternion-conjugate q)
+(define (quat-conjugate q)
   (let ([c (vec-map - q)])
     (vec-set! c 0 (vec-ref q 0))
     c))
 
 (define (rotate-vec v q)
-  (let* ([q1 (make-quaternion 0. (vec-ref v 0) (vec-ref v 1) (vec-ref v 2))]
-         [q2 (quaternion* (quaternion* q q1)
-                          (quaternion-conjugate q))])
+  (let* ([q1 (quat 0. (vec-ref v 0) (vec-ref v 1) (vec-ref v 2))]
+         [q2 (quat* (quat* q q1)
+                          (quat-conjugate q))])
     (subvec q2 1 4)))
 
-;; (define (rotate-vector vec q)
-;;   (vec->vector (rotate-vec (vector->vec vec) q)))
-
-(define rotate-vector rotate-vec)
-
-(define (make-quaternion-from-angle-axis angle v)
+(define (make-quat-from-angle-axis angle v)
   (let* ([half-angle (fl* (exact->inexact angle) 0.5)]
          [q (vec-append
              (vec (cos half-angle))
              (vec-scalar* (sin half-angle) v))])
-    (quaternion-normalize! q)
+    (quat-normalize! q)
     q))
 
-(define (make-quaternion-from-euler-angles x y z)
+(define (make-quat-from-euler-angles x y z)
   (let ([cr (flcos (fl/ x 2.))]
         [cp (flcos (fl/ y 2.))]
         [cy (flcos (fl/ z 2.))]
@@ -77,8 +51,8 @@
        (fl+ (fl* cr sp cy) (fl* sr cp sy))
        (fl- (fl* cr cp sy) (fl* sr sp cy))))))
 
-(define (make-quaternion-from-direction dir up)
-  ;; very ugly implementation of quaternion-from-direction
+(define (make-quat-from-direction dir up)
+  ;; very ugly implementation of quat-from-direction
   ;; taken directly from the c++ implementation.
   ;; need to schemify!
   (let ([biggest (lambda (x y z)
@@ -102,7 +76,7 @@
                      (* (- (vec-ref up 2) (vec-ref right 1)) scale)
                      (* (- (vec-ref right 0) (vec-ref dir 2)) scale)
                      (* (- (vec-ref dir 1) (vec-ref up 0)) scale))])
-            (quaternion-normalize! q)
+            (quat-normalize! q)
             q)
           (let ([b (biggest dir up right)])
             (cond 
@@ -115,7 +89,7 @@
                         [y (* s (+ (vec-ref dir 1) (vec-ref up 0)))]
                         [z (* s (+ (vec-ref dir 2) (vec-ref right 0)))]
                         [q (vec w x y z)])
-                   (quaternion-normalize! q)
+                   (quat-normalize! q)
                    q))]
               [(eq? b up)
                (let* ([s (sqrt (+ (- (vec-ref up 1) (+ (vec-ref right 2) (vec-ref dir 0))) 1.))]
@@ -136,10 +110,10 @@
                         [x (* s (+ (vec-ref right 0) (vec-ref dir 2)))]
                         [y (* s (+ (vec-ref right 1) (vec-ref up 2)))]
                         [q (vec w x y z)])
-                   (quaternion-normalize! q)
+                   (quat-normalize! q)
                    q))]))))))
  
-(define (quaternion* p q)
+(define (quat* p q)
   (let ([p0 (vec-ref p 0)]
         [p1 (vec-ref p 1)]
         [p2 (vec-ref p 2)]
@@ -165,8 +139,8 @@
                     (fl* p0 q3)
                     (fl* p3 q0)))))
 
-(define (quaternion-interp q1 q2 scale)
+(define (quat-interp q1 q2 scale)
   (let ([q (vec+ (vec-scalar* (fl- 1.0 scale) q1)
                        (vec-scalar*          scale  q2))])
-    (quaternion-normalize! q)
+    (quat-normalize! q)
     q))

@@ -147,7 +147,7 @@
 (define (find-first-and-last-quat time keys)
   (let ([->time-quat-pair (lambda (i) 
                            (cons (vec-ref keys i) 
-                                 (make-quaternion 
+                                 (quat
                                   (vec-ref keys (+ i 1)) 
                                   (vec-ref keys (+ i 2))
                                   (vec-ref keys (+ i 3))
@@ -173,7 +173,7 @@
           (let ([first (car r)]
                 [second (cdr r)])           
             (set! rotation 
-                  (quaternion-interp 
+                  (quat-interp 
                    (cdr first)  
                    (cdr second) 
                    (/ (- time (car first)) ;; time-scale

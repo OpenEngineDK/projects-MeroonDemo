@@ -866,7 +866,7 @@ c-skin-mesh-end
 
 ;; construct column major float array matrices from transformation.
 (define (set-gl-rotation-matrix! trans)
-  (quaternion-deref (Transformation-rotation trans)
+  (quat-deref (Transformation-rotation trans)
     (c-lambda (float float float float) void
 #<<UPDATE_C_MATRIX_END
 const float w  = ___arg1;
@@ -894,7 +894,7 @@ UPDATE_C_MATRIX_END
 
 ;; the view matrix is the inverse matrix of the camera transformation
 (define (set-gl-view-matrix! trans)
-  (quaternion-deref (Transformation-rotation trans)
+  (quat-deref (Transformation-rotation trans)
     (c-lambda (float float float float) void
 #<<UPDATE_C_MATRIX_END
 const float w  = ___arg1;
@@ -937,7 +937,7 @@ UPDATE_TRANSFORMATION_POS_END
 
 (define (set-gl-matrix! transformation)
   (with-access transformation (Transformation translation rotation scaling pivot)
-    (quaternion-deref rotation set-gl-matrix-rotation!)
+    (quat-deref rotation set-gl-matrix-rotation!)
     (if pivot
         (set-gl-matrix-position-with-pivot! (vec-ref translation 0)
                                             (vec-ref translation 1)
