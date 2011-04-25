@@ -40,8 +40,8 @@
       :initializer (lambda () #f)] 
    ))
 
-(define-class ShaderNode SceneNode ;; Effect
-  ([* tags :immutable]))
+;; (define-class ShaderNode SceneNode ;; Effect
+;;   ([* tags :immutable]))
 
 ;; A Leaf containing geometry
 (define-class MeshLeaf SceneLeaf

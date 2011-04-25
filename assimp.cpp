@@ -1,3 +1,5 @@
+#define ___VERSION 406000
+#include <gambit.h>
 #include <assimp.hpp>      // C++ importer interface
 #include <aiScene.h>       // Output data structure
 #include <aiPostProcess.h> // Post processing flags
@@ -17,7 +19,7 @@ using namespace std;
 // A: bones are transformations which contain vertex weights and are
 //    used to skin an animated mesh.
 
-map<string, unsigned int> bones;            // bones referenced by animations
+map<string, unsigned int> bones, lights;    // bones referenced by animations
 map<string, unsigned int> transformations;  // transformations referenced by animations
 
 void add_vertex_attribute_scm(char* type, int elm_size, int elm_count, void* data);
@@ -53,6 +55,83 @@ void add_animation_scm(char* name, float duration, float ticks_per_second);
 void clear_animation_keys_scm();
 
 void add_animated_mesh_scm(int material_index, int number_of_bones);
+
+
+void add_directional_light_scm(___SCMOBJ amb, ___SCMOBJ diff, ___SCMOBJ spec, ___SCMOBJ dir);
+void add_point_light_scm(___SCMOBJ amb, ___SCMOBJ diff, ___SCMOBJ spec, ___SCMOBJ pos,
+                         float att_const, float att_lin, float att_quad);
+void push_light_node_scm(int light_index);
+
+void readLights(aiLight** ls, unsigned int size) {
+    lights.clear();
+    unsigned int i;
+    for (i = 0; i < size; ++i) {
+        aiLight* l = ls[i];
+        
+        aiColor3D ai_amb = l->mColorAmbient;
+        aiColor3D ai_diff = l->mColorDiffuse;
+        aiColor3D ai_spec = l->mColorSpecular;
+        ___F32* col;
+        
+        ___SCMOBJ amb = ___EXT(___alloc_scmobj) (___sF32VECTOR, 4*sizeof(___F32), ___STILL);
+        col = ___CAST(___F32*,___BODY(amb));
+        col[0] = ai_amb.r;
+        col[1] = ai_amb.g;
+        col[2] = ai_amb.b;
+        col[3] = 1.0;
+
+        ___SCMOBJ diff = ___EXT(___alloc_scmobj) (___sF32VECTOR, 4*sizeof(___F32), ___STILL);
+        col = ___CAST(___F32*,___BODY(diff));
+        col[0] = ai_diff.r;
+        col[1] = ai_diff.g;
+        col[2] = ai_diff.b;
+        col[3] = 1.0;
+
+        ___SCMOBJ spec = ___EXT(___alloc_scmobj) (___sF32VECTOR, 4*sizeof(___F32), ___STILL);
+        col = ___CAST(___F32*,___BODY(spec));
+        col[0] = ai_spec.r;
+        col[1] = ai_spec.g;
+        col[2] = ai_spec.b;
+        col[3] = 1.0;
+
+        switch(l->mType) {
+        case aiLightSource_DIRECTIONAL: {
+            aiVector3D ai_dir = l->mDirection;
+            ___SCMOBJ dir = ___EXT(___alloc_scmobj) (___sF32VECTOR, 3*sizeof(___F32), ___STILL);
+            float* pdir = ___CAST(___F32*,___BODY(dir));
+            pdir[0] = ai_dir.x;
+            pdir[1] = ai_dir.y;
+            pdir[2] = ai_dir.z;
+            add_directional_light_scm(amb, diff, spec, dir);
+            lights[l->mName.data] = i+1;
+            ___EXT(___release_scmobj) (dir);
+            break;
+        }
+        case aiLightSource_POINT: {
+            aiVector3D ai_pos = l->mPosition;
+            ___SCMOBJ pos = ___EXT(___alloc_scmobj) (___sF32VECTOR, 3*sizeof(___F32), ___STILL);
+            float* ppos = ___CAST(___F32*,___BODY(pos));
+            ppos[0] = ai_pos.x;
+            ppos[1] = ai_pos.y;
+            ppos[2] = ai_pos.z;
+            add_point_light_scm(amb, diff, spec, pos, 
+                                l->mAttenuationConstant, 
+                                l->mAttenuationLinear, 
+                                l->mAttenuationQuadratic);
+            ___EXT(___release_scmobj) (pos);
+            break;
+        }
+        // case aiLightSource_SPOT:
+        //     add_spot_light_scm();
+        //     break;
+        default:
+            break;
+        }
+        ___EXT(___release_scmobj) (amb);
+        ___EXT(___release_scmobj) (diff);
+        ___EXT(___release_scmobj) (spec);
+    }
+}
 
 void readAnimations(aiAnimation** anims, unsigned int size) {
     unsigned int i, j, k;
@@ -339,6 +418,11 @@ void readNode(const aiNode* node) {
         push_bone_node_scm((*itr).second);
     }
 
+    itr = lights.find(node->mName.data);
+    if (itr != lights.end()) {
+        printf("add light node: %s\n", node->mName.data);
+        push_light_node_scm((*itr).second);
+    }
 
     // append meshes to the transformation node
     if ( node->mNumMeshes > 0 ) {

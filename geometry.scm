@@ -36,6 +36,10 @@
    [= specular :initializer (lambda () (vec 0. 0. 0. 1.))]))
 
 (define-class PointLight Light
-  ([= constant-att  :initializer (lambda () 1.)]
-   [= linear-att    :initializer (lambda () 0.)]
-   [= quadratic-att :initializer (lambda () 0.)]))
+  ([= position :initializer (lambda () (vec 0. 0. 0.))]
+   [= att-constant  :initializer (lambda () 1.)]
+   [= att-linear    :initializer (lambda () 0.)]
+   [= att-quadratic :initializer (lambda () 0.)]))
+
+(define-class DirectionalLight Light
+  ([= direction :initializer (lambda () (vec 0. -1. 0.))]))

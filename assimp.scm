@@ -2,13 +2,13 @@
 #include <assimp.hpp>      // C++ importer interface
 #include <aiScene.h>       // Output data structure
 #include <aiPostProcess.h> // Post processing flags
-//#include <Resources/DataBlock.h>
 #include <cstdio>
 
 #include <vector>
 
 //using namespace OpenEngine::Resources;
 using namespace std;
+void readLights(aiLight**, unsigned int);
 void readMaterials(aiMaterial**, unsigned int);
 void readMeshes(aiMesh**, unsigned int);
 void readAnimations(aiAnimation**, unsigned int size);
@@ -31,6 +31,7 @@ c-declare-end
 ;; geometry globals
 (define *loaded-blocks* '())
 (define *loaded-meshes* '())
+(define *loaded-lights* '())
 (define *loaded-materials* '())
 
 ;; transformation globals
@@ -64,6 +65,37 @@ c-declare-end
 			      [else r]))])
 	  (substring path 0 (+ 1 (last-sep 0 0)))))))
 
+
+;; --- lights ---
+(c-define (add-directional-light ambient diffuse specular direction)
+    (scheme-object scheme-object scheme-object scheme-object) void "add_directional_light_scm" ""
+  (set! *loaded-lights* (cons (instantiate DirectionalLight
+                                  :ambient ambient
+                                  :diffuse diffuse
+                                  :specular diffuse
+                                  :direction direction)
+                              *loaded-lights*)))
+
+(c-define (add-point-light ambient diffuse specular position att-constant att-linear att-quadratic)
+    (scheme-object scheme-object scheme-object scheme-object float float float) void "add_point_light_scm" ""
+  (set! *loaded-lights* (cons (instantiate PointLight
+                                  :ambient ambient
+                                  :diffuse diffuse
+                                  :specular diffuse
+                                  :position position
+                                  :att-constant att-constant
+                                  :att-linear att-linear
+                                  :att-quadratic att-quadratic)
+                              *loaded-lights*)))
+
+(c-define (push-light-node light-index)
+    (int) void "push_light_node_scm" ""
+    (let ([l (list-ref *loaded-lights* 
+                       (- ;; light-indices were given in reverse order, thats why
+                        (length *loaded-lights*) 
+                        light-index))])
+      (with-access (car *scene-parent-stack*) (SceneNode children)
+		   (set! children (cons (instantiate LightLeaf :light l) children)))))
 
 
 ;; --- animation functions ---
@@ -336,6 +368,7 @@ if( !scene ) {
   ___result = false;
 }
 else {
+  readLights(scene->mLights, scene->mNumLights);
   readMaterials(scene->mMaterials, scene->mNumMaterials);
   readMeshes(scene->mMeshes, scene->mNumMeshes);
   readScene(scene);

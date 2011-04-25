@@ -1,28 +1,15 @@
 ;; Context definition
 (define-class GLContext Context 
-  ([= textures :initializer make-table]
-   [= meshes   :initializer make-table]
-   [= shaders  :initializer list]
+  ([= _textures :initializer make-table]
+   [= _meshes   :initializer make-table]
+;;   [= shaders  :initializer list]
    [= vbos :initializer list]
-   [= num-lights :initializer (lambda () 0)]
    [= vbo? :initializer (lambda () #f)]
    [= fbo? :initializer (lambda () #f)]))
-
-(define (gl-lookup-texture-id ctx texture)
-  (cond
-    [(assoc texture (GLContext-textures ctx))
-     => (lambda (p) (cdr p))]
-    [else #f]))
 
 (define (gl-lookup-vbo-id ctx db)
   (cond
     [(assoc db (GLContext-vbos ctx))
-     => (lambda (p) (cdr p))]
-    [else #f]))
-
-(define (gl-lookup-mesh ctx m)
-  (cond
-    [(assoc m (GLContext-meshes ctx))
      => (lambda (p) (cdr p))]
     [else #f]))
 
@@ -41,10 +28,10 @@
 glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 glEnable(GL_LIGHTING); 
 glEnable(GL_TEXTURE_2D); 
-glEnable(GL_DEPTH_TEST);						   
+glEnable(GL_DEPTH_TEST); 
 glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 glShadeModel(GL_SMOOTH);
-glEnable(GL_CULL_FACE);
+glDisable(GL_CULL_FACE);
 CHECK_FOR_GL_ERROR();
 
 INIT_GL_CONTEXT_END
@@ -57,8 +44,6 @@ INIT_GL_CONTEXT_END
   (gl-viewport (Canvas-width can) (Canvas-height can))
   (set-gl-view-matrix! (Camera-view (Canvas3D-camera can)))
   (gl-viewing-volume (Projection-c-matrix (Camera-proj (Canvas3D-camera can))))
-  (with-access ctx (GLContext num-lights)
-    (set! num-lights 0))
   (gl-setup-lights! ctx (Canvas3D-scene can))
   (gl-render-scene! ctx (Canvas3D-scene can)))
 
@@ -81,7 +66,7 @@ INIT_GL_CONTEXT_END
 
 ;; render bones
 (define-method (gl-render-scene! ctx (node BoneNode))
- #f)
+(values))
   ;; (gl-push-transformation (BoneNode-transformation node))
   ;; (call-next-method) ;; i.e., on SceneNode
   ;; (gl-pop-transformation))
@@ -131,13 +116,13 @@ INIT_GL_CONTEXT_END
   (call-next-method))
 
 (define (fetch-texture ctx texture)
-  (with-access ctx (GLContext textures)
+  (with-access ctx (GLContext _textures)
     (if texture
-        (let ([tid (table-ref textures texture #f)])
+        (let ([tid (table-ref _textures texture #f)])
           (if tid
               tid
               (let ([tid (gl-make-texture texture)])
-                (table-set! textures texture tid) ;;(cons (cons texture tid) textures))
+                (table-set! _textures texture tid) ;;(cons (cons texture tid) _textures))
                 tid)))
         0)))
 
@@ -194,13 +179,13 @@ INIT_GL_CONTEXT_END
       gl-mesh)))
 
 (define (fetch-gl-mesh ctx mesh)
-  (with-access ctx (GLContext meshes)
-    (let ([gl-mesh (table-ref meshes mesh #f)])
+  (with-access ctx (GLContext _meshes)
+    (let ([gl-mesh (table-ref _meshes mesh #f)])
       (if gl-mesh
           gl-mesh
           (begin
             (set! gl-mesh (make-gl-mesh mesh))
-            (table-set! meshes mesh gl-mesh)
+            (table-set! _meshes mesh gl-mesh)
             gl-mesh)))))
 
 (define-method (gl-render-mesh ctx (mesh Mesh))
@@ -247,89 +232,131 @@ INIT_GL_CONTEXT_END
       (gl-render-mesh-vbo ctx (MeshLeaf-mesh node))
       (gl-render-mesh ctx (MeshLeaf-mesh node))))
 
-(define-method (gl-render-scene! ctx (node ShaderNode))
-  (let ([shader-tag (ShaderNode-tags node 0)])
-    (with-access ctx (GLContext shaders)
+;; (define-method (gl-render-scene! ctx (node ShaderNode))
+;;   (let ([shader-tag (ShaderNode-tags node 0)])
+;;     (with-access ctx (GLContext shaders)
       
-      (cond 
-        [(assoc shader-tag shaders)
-         => (lambda (p)
-              (gl-apply-shader (cdr p)))]
-        [else 
-         (let* ([shader (assoc shader-tag shader-programs)]
-                [vert (cadr shader)]
-                [frag (caddr shader)])
-           (set! shaders (cons (cons shader-tag
-                                     (gl-make-program vert frag)) 
-                               shaders)))])
-      (call-next-method))))
-                        
-(define-generic (gl-setup-lights! ctx (node Object))
+;;       (cond 
+;;         [(assoc shader-tag shaders)
+;;          => (lambda (p)
+;;               (gl-apply-shader (cdr p)))]
+;;         [else 
+;;          (let* ([shader (assoc shader-tag shader-programs)]
+;;                 [vert (cadr shader)]
+;;                 [frag (caddr shader)])
+;;            (set! shaders (cons (cons shader-tag
+;;                                      (gl-make-program vert frag)) 
+;;                                shaders)))])
+;;       (call-next-method))))
+                   
+
+;; --- traverse scene graph and setup lighting parameters ---
+
+(define gl-max-lights
+  (c-lambda () int 
+    "GLint max;
+     glGetIntegerv(GL_MAX_LIGHTS, &max);
+     ___result = max;"))
+
+(define gl-turn-off-lights
+  (c-lambda (int int) void
+    "for (GLint i = ___arg1 + GL_LIGHT0; i < ___arg2 + GL_LIGHT0; ++i) glDisable(i);"))
+
+(define (gl-setup-lights! ctx scene)
+  (let ([light-count (_gl-setup-lights! ctx scene 0)])
+    (gl-turn-off-lights light-count (gl-max-lights))
+    light-count))
+
+(define-generic (_gl-setup-lights! ctx (scene Scene) light-count)
   (error "Unsupported scene node"))
 
-(define-generic (gl-setup-light! ctx (light Light))
-  (error "Unsupported scene node"))
+(define-method (_gl-setup-lights! ctx (leaf SceneLeaf) light-count)
+  light-count)
 
-(define-method (gl-setup-lights! ctx (node SceneNode))
+(define-method (_gl-setup-lights! ctx (node SceneNode) light-count)
   (do ([children (SceneNode-children node) (cdr children)])
       ((null? children))
-    (gl-setup-lights! ctx (car children))))
+    (set! light-count (_gl-setup-lights! ctx (car children) light-count)))
+  light-count)
 
-(define-method (gl-setup-lights! ctx (node TransformationNode))
+(define-method (_gl-setup-lights! ctx (node TransformationNode) light-count)
   (gl-push-transformation (TransformationNode-transformation node))
-  (call-next-method) ;; i.e., on SceneNode
-  (gl-pop-transformation))
+  (let ([lc (call-next-method)]) ;; i.e., on SceneNode
+    (gl-pop-transformation)
+    lc))
 
-(define-method (gl-setup-lights! ctx (node Scene))
-  (values))
+(define-method (_gl-setup-lights! ctx (leaf LightLeaf) light-count)
+  (gl-setup-light! ctx (LightLeaf-light leaf) light-count))
 
-(define-method (gl-setup-lights! ctx (node LightLeaf))
-  (gl-setup-light! ctx (LightLeaf-light node)))
+(define-generic (gl-setup-light! ctx (light Light) light-count)
+  (error "Unsupported light source"))
 
-(define-method (gl-setup-light! ctx (light PointLight))
-  (with-access ctx (GLContext num-lights)
-    (with-access light (PointLight ambient diffuse specular)
-      ((c-lambda (int scheme-object scheme-object scheme-object) void 
+(define-method (gl-setup-light! ctx (light DirectionalLight) light-count)
+  (with-access light (DirectionalLight ambient diffuse specular direction)
+    ((c-lambda (int scheme-object scheme-object scheme-object scheme-object) void 
+#<<c-gl-setup-light-end
+float* ambient  = ___CAST(___F32*,___BODY(___arg2));
+float* diffuse  = ___CAST(___F32*,___BODY(___arg3));
+float* specular = ___CAST(___F32*,___BODY(___arg4));
+float* direction = ___CAST(___F32*,___BODY(___arg5));
+
+GLint light = GL_LIGHT0 + ___arg1;
+const float dir[] = {direction[0], direction[1], direction[2], 0.0};
+glLightfv(light, GL_POSITION, dir);
+glLightfv(light, GL_AMBIENT, ambient);
+glLightfv(light, GL_DIFFUSE, diffuse);
+glLightfv(light, GL_SPECULAR, specular);
+
+glEnable(light);
+c-gl-setup-light-end
+) light-count ambient diffuse specular direction))
+    (+ 1 light-count))
+
+(define-method (gl-setup-light! ctx (light PointLight) light-count)
+  (with-access light (PointLight ambient diffuse specular position att-constant att-linear att-quadratic)
+    ((c-lambda (int scheme-object scheme-object scheme-object scheme-object float float float) void 
 #<<c-gl-setup-light-end
 float* ambient  = &(___F32VECTORREF(___arg2, 0));
 float* diffuse  = &(___F32VECTORREF(___arg3, 0));
 float* specular = &(___F32VECTORREF(___arg4, 0));
+float* position = &(___F32VECTORREF(___arg5, 0));
 
 GLint light = GL_LIGHT0 + ___arg1;
-const float pos[] = {0.0, 0.0, 0.0, 1.0};
+const float pos[] = {position[0], position[1], position[2], 1.0};
 glLightfv(light, GL_POSITION, pos);
 glLightfv(light, GL_AMBIENT, ambient);
 glLightfv(light, GL_DIFFUSE, diffuse);
 glLightfv(light, GL_SPECULAR, specular);
 
-// glLightf(light, GL_CONSTANT_ATTENUATION, node->constAtt);
-// glLightf(light, GL_LINEAR_ATTENUATION, node->linearAtt);
-// glLightf(light, GL_QUADRATIC_ATTENUATION, node->quadAtt);
+glLightf(light, GL_CONSTANT_ATTENUATION, ___arg6);
+glLightf(light, GL_LINEAR_ATTENUATION, ___arg7);
+glLightf(light, GL_QUADRATIC_ATTENUATION, ___arg8);
+
 glEnable(light);
 c-gl-setup-light-end
-) num-lights ambient diffuse specular)
-      (set! num-lights (+ 1 num-lights)))))
+) light-count ambient diffuse specular position att-constant att-linear att-quadratic))
+    (+ 1 light-count))
 
 (define stack-height 
   (c-lambda () int "glGetIntegerv(GL_MAX_MODELVIEW_STACK_DEPTH, &___result);"))
 
 ;;; shaders
 
-(define shader-programs
-  (list
-    (list 'blue
-#<<BLUE-VERT-END
-void main () {
-  gl_Position = ftransform();         
-}
-BLUE-VERT-END
-#<<BLUE-FRAG-END
-void main () {
-  gl_FragColor = vec4(0., 0. , 1. ,1. );
-}
-BLUE-FRAG-END
-)
-))
+;; (define shader-programs
+;;   (list
+;;     (list 'blue
+;; #<<BLUE-VERT-END
+;; void main () {
+;;   gl_Position = ftransform();         
+;; }
+;; BLUE-VERT-END
+;; #<<BLUE-FRAG-END
+;; void main () {
+;;   gl_FragColor = vec4(0., 0. , 1. ,1. );
+;; }
+;; BLUE-FRAG-END
+;; )
+;; ))
 
 ;; Helpers and foreign functions to OpenGL
 
