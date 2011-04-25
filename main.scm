@@ -24,19 +24,19 @@
 (define env-model         (load-scene "resources/environment/Environment03.DAE"))
 
 ;; Create some scene nodes
-(define jaw-node
-  (instantiate TransformationNode
-    :transformation (instantiate Transformation
-                      :pivot (vec 0. 0. -15.))
-    :children (list dragon-jaw-model)))
+;; (define jaw-node
+;;   (instantiate TransformationNode
+;;     :transformation (instantiate Transformation
+;;                       :pivot (vec 0. 0. -15.))
+;;     :children (list dragon-jaw-model)))
 
-(define dragon
-  (instantiate TransformationNode
-    :children (list dragon-head-model jaw-node)))
+;; (define dragon
+;;   (instantiate TransformationNode
+;;     :children (list dragon-head-model jaw-node)))
 
-(define arne
-  (instantiate TransformationNode
-    :children (list arne-model)))
+;; (define arne
+;;   (instantiate TransformationNode
+;;     :children (list arne-model)))
 
 (define finn
   (instantiate TransformationNode
@@ -73,7 +73,7 @@
 
    (make-animator-module animator top) ;; give the animation subsystem processing time
 
-   (lambda (dt) (update-cameras! top))
+   (lambda (dt) (update-cameras! top dt))
 ))
 
 ;; key input handling
@@ -150,6 +150,8 @@
       (linear-damping-set! physics rb 0.8)
       (scene-add-node! top plane)))
 
+(define debug-render #t)
+
 (let* ([can   (instantiate Canvas3D
                 :width  800
                 :height 600
@@ -186,6 +188,8 @@
 
   (run-glut-loop (lambda () 
                    (render! ctx can)
+                   (if debug-render
+                       (bullet-debug-draw))
                    (glut-swap-buffers))
                  
                  (lambda ()
@@ -193,10 +197,7 @@
 			  [dt (- t last-time)])
 		     (set! last-time t)
 		     (process-modules dt modules)
-                     (queue-run *main-queue*)
-                     (if debug-render
-                         (bullet-debug-draw))
-                     
+                     (queue-run *main-queue*)                     
                      (##gc) ;; trigger gc to minimize pause times
                      (thread-sleep! 0.005)
                      ))))
