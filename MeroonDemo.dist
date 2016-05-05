@@ -1,18 +1,18 @@
 # Distribution file for the Example project.
 # http://www.openengine.dk/wiki/Projects/Gambit
 
-dist /dependencies/GambitDep/GambitDep.dist http://openengine.dk/code/dependencies/GambitDep/GambitDep.dist
-dist /extensions/Assimp/Assimp.dist http://openengine.dk/code/extensions/Assimp/Assimp.dist
-dist /extensions/BulletPhysics/BulletPhysics.dist http://openengine.dk/code/extensions/BulletPhysics/BulletPhysics.dist
+dist /dependencies/GambitDep/GambitDep.dist https://raw.githubusercontent.com/OpenEngineDK/dependencies-GambitDep/master/GambitDep.dist
+dist /extensions/Assimp/Assimp.dist https://raw.githubusercontent.com/OpenEngineDK/extensions-Assimp/master/Assimp.dist
+dist /extensions/BulletPhysics/BulletPhysics.dist https://raw.githubusercontent.com/OpenEngineDK/extensions-BulletPhysics/master/BulletPhysics.dist
 
 # main repository
-darcs / http://openengine.dk/code/openengine
-darcs-dev / fh.daimi.au.dk:/users/cgd/code/openengine
+git / https://github.com/OpenEngineDK/openengine.git
+git-dev / git@github.com:OpenEngineDK/openengine.git
 
 # project repository
 # (uncomment the following two lines after uploading your project)
-darcs     /projects/MeroonDemo http://openengine.dk/code/projects/MeroonDemo
-darcs-dev /projects/MeroonDemo fh.daimi.au.dk:/users/cgd/code/projects/MeroonDemo
+git     /projects/MeroonDemo https://github.com/OpenEngineDK/projects-MeroonDemo.git
+git-dev /projects/MeroonDemo git@github.com:OpenEngineDK/projects-MeroonDemo.git
 
 # required extensions
 darcs 	   /extensions/OpenGLRenderer		http://openengine.dk/code/extensions/OpenGLRenderer
